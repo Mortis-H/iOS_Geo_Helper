@@ -6,3 +6,4 @@ dist/
 *.spec
 .claude/
 route/
+__pycache__/
