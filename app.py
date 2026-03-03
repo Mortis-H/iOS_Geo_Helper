@@ -9,6 +9,7 @@ import tunnel
 import location
 import patrol as patrol_module
 from list_editor import ListEditorWindow
+from version import __version__
 
 # ── 收藏地點 ─────────────────────────────────────────────────────────────────
 
@@ -310,7 +311,7 @@ def on_closing():
 # ── 主視窗 ───────────────────────────────────────────────────────────────────
 
 root = tk.Tk()
-root.title("iOS 虛擬定位")
+root.title(f"iOS 虛擬定位 v{__version__}")
 root.geometry("1080x540")
 root.protocol("WM_DELETE_WINDOW", on_closing)
 

@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox, filedialog
 import re
 import json
+import route_planner
 
 
 class ListEditorWindow:
@@ -23,7 +24,7 @@ class ListEditorWindow:
 
         self.win = tk.Toplevel(parent)
         self.win.title("清單編輯器")
-        self.win.geometry("620x440")
+        self.win.geometry("820x440")
         self.win.resizable(True, True)
         self.win.protocol("WM_DELETE_WINDOW", self.win.destroy)
 
@@ -69,6 +70,13 @@ class ListEditorWindow:
         self.count_label.pack(side=tk.LEFT)
         tk.Button(list_top, text="✅ 套用到主視窗", command=self._apply_to_main).pack(side=tk.RIGHT)
         tk.Button(list_top, text="💾 儲存 JSON", command=self._save_json).pack(side=tk.RIGHT, padx=4)
+        tk.Button(list_top, text="🌸 規劃最佳路線", command=self._plan_route).pack(side=tk.RIGHT, padx=4)
+        tk.Button(list_top, text="🔄 外圈巡邏", command=self._orbit_route).pack(side=tk.RIGHT, padx=4)
+        tk.Button(list_top, text="🍎 種果路線", command=self._fruit_route).pack(side=tk.RIGHT, padx=4)
+        self.plan_speed_entry = tk.Entry(list_top, width=5, font=("", 9))
+        self.plan_speed_entry.insert(0, "20")
+        self.plan_speed_entry.pack(side=tk.RIGHT)
+        tk.Label(list_top, text="速度(km/h)：", font=("", 9), fg="gray").pack(side=tk.RIGHT, padx=(4, 0))
 
         lb_frame = tk.Frame(result_lf)
         lb_frame.pack(fill=tk.BOTH, expand=True, pady=(4, 0))
@@ -140,6 +148,130 @@ class ListEditorWindow:
             return
         item = self._items[sel[0]]
         self._location_fn(item["lat"], item["lng"])
+
+    def _plan_route(self):
+        if len(self._items) < 2:
+            messagebox.showwarning("花點不足", "請先解析至少 2 個座標")
+            return
+
+        try:
+            speed_kmh = max(1.0, float(self.plan_speed_entry.get().strip()))
+        except ValueError:
+            speed_kmh = 20.0
+
+        flowers = [(float(it["lat"]), float(it["lng"])) for it in self._items]
+        result = route_planner.plan_route(flowers, speed_kmh=speed_kmh)
+        route = result["route"][:-1]  # 去掉回起點的重複點
+
+        # 將路線座標映射回原始 items（以 lat/lng 浮點值比對）
+        lookup = {(float(it["lat"]), float(it["lng"])): it for it in self._items}
+        reordered = [lookup[pt] for pt in route if pt in lookup]
+
+        if not reordered:
+            messagebox.showerror("規劃失敗", "無法映射路線到清單")
+            return
+
+        self._items = reordered
+        self.result_lb.delete(0, tk.END)
+        for item in self._items:
+            self.result_lb.insert(tk.END, f"{item['name']}  ({item['dwell']}s)")
+        self.count_label.config(text=f"共 {len(self._items)} 筆")
+
+        covered = len(result["covered"])
+        total = len(flowers)
+        dist = result["total_dist"]
+        speed_mps = result["speed_mps"]
+        msg = f"有效花點：{covered}/{total}\n總距離：{dist:.0f} 公尺\n預估時間：{dist/speed_mps/60:.1f} 分鐘（{speed_kmh:.0f} km/h）"
+        if result["warnings"]:
+            msg += "\n\n" + "\n".join(result["warnings"])
+        messagebox.showinfo("路線規劃完成", msg)
+
+    def _fruit_route(self):
+        if len(self._items) < 2:
+            messagebox.showwarning("座標不足", "請先解析至少 2 個座標")
+            return
+
+        flowers = [(float(it["lat"]), float(it["lng"])) for it in self._items]
+        result = route_planner.fruit_route(flowers)
+        route = result["route"]
+
+        lookup = {(float(it["lat"]), float(it["lng"])): it for it in self._items}
+        reordered = [lookup[pt] for pt in route if pt in lookup]
+
+        if not reordered:
+            messagebox.showerror("規劃失敗", "無法映射路線到清單")
+            return
+
+        self._items = reordered
+        self.result_lb.delete(0, tk.END)
+        for item in self._items:
+            self.result_lb.insert(tk.END, f"{item['name']}  ({item['dwell']}s)")
+        self.count_label.config(text=f"共 {len(self._items)} 筆")
+
+        dist = result["total_dist"]
+        try:
+            speed_kmh = max(1.0, float(self.plan_speed_entry.get().strip()))
+        except ValueError:
+            speed_kmh = 20.0
+        speed_mps = speed_kmh / 3.6
+        messagebox.showinfo("種果路線規劃完成",
+            f"總距離：{dist:.0f} 公尺\n"
+            f"預估時間：{dist/speed_mps/60:.1f} 分鐘（{speed_kmh:.0f} km/h）\n\n"
+            f"建議主視窗使用「單次」巡邏模式")
+
+    def _orbit_route(self):
+        if not self._items:
+            messagebox.showwarning("花點不足", "請先解析至少 1 個座標")
+            return
+
+        try:
+            default_dwell = max(0, int(self.dwell_entry.get().strip()))
+        except ValueError:
+            default_dwell = 0
+
+        flowers = [(float(it["lat"]), float(it["lng"])) for it in self._items]
+        result = route_planner.orbit_route(flowers)
+        waypoints = result["waypoints"]
+
+        if not waypoints:
+            msg = "無法產生外圈路線"
+            if result["warnings"]:
+                msg += "\n\n" + "\n".join(result["warnings"])
+            messagebox.showerror("規劃失敗", msg)
+            return
+
+        new_items = []
+        for k, wp in enumerate(waypoints):
+            new_items.append({
+                "name": f"WP{k+1:02d}",
+                "lat":  f"{wp[0]:.8f}",
+                "lng":  f"{wp[1]:.8f}",
+                "dwell": default_dwell,
+            })
+
+        self._items = new_items
+        self.result_lb.delete(0, tk.END)
+        for item in self._items:
+            self.result_lb.insert(tk.END, f"{item['name']}  ({item['dwell']}s)")
+        self.count_label.config(text=f"共 {len(self._items)} 筆")
+
+        n = len(waypoints)
+        dist = sum(route_planner.haversine(waypoints[i], waypoints[(i + 1) % n])
+                   for i in range(n))
+        try:
+            speed_kmh = max(1.0, float(self.plan_speed_entry.get().strip()))
+        except ValueError:
+            speed_kmh = 20.0
+        speed_mps = speed_kmh / 3.6
+        info_msg = (
+            f"已產生 {n} 個路徑點\n"
+            f"安全半徑：{result['radius_used']:.1f} 公尺\n"
+            f"軌道總距離：{dist:.0f} 公尺\n"
+            f"預估時間：{dist/speed_mps/60:.1f} 分鐘（{speed_kmh:.0f} km/h）"
+        )
+        if result["warnings"]:
+            info_msg += "\n\n" + "\n".join(result["warnings"])
+        messagebox.showinfo("外圈巡邏路線", info_msg)
 
     def _apply_to_main(self):
         self._coord_list_items.clear()

@@ -1,0 +1,540 @@
+"""
+花點路線規劃器
+==============
+輸入：花點座標（十進位經緯度）
+輸出：最佳循環路線，5 分鐘內不走重複路徑，最大化有效花點數
+
+規則：
+- 每個花點半徑 40 公尺為有效範圍，路線經過即可計入
+- 5 分鐘內不能走重複路徑（兩線段實際相交或重疊才算重複）
+- 自動選最佳起點
+- 目標：最大化經過的有效花點數
+"""
+
+import math
+import itertools
+from typing import List, Tuple, Optional
+
+# ── 型別別名 ──────────────────────────────────────────────
+Point = Tuple[float, float]   # (lat, lng)
+
+# ── 常數 ──────────────────────────────────────────────────
+FLOWER_RADIUS_M = 40.0        # 有效半徑（公尺）
+WALK_SPEED_MPS  = 1.4         # 步行速度（公尺/秒），約 5 km/h
+TIME_LIMIT_SEC  = 5 * 60      # 5 分鐘
+MAX_WALK_DIST_M = WALK_SPEED_MPS * TIME_LIMIT_SEC  # 約 420 公尺
+
+
+# ════════════════════════════════════════════════════════════
+# 工具函式
+# ════════════════════════════════════════════════════════════
+
+def haversine(p1: Point, p2: Point) -> float:
+    """兩點間距離（公尺）"""
+    R = 6_371_000
+    lat1, lon1 = math.radians(p1[0]), math.radians(p1[1])
+    lat2, lon2 = math.radians(p2[0]), math.radians(p2[1])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
+    return R * 2 * math.asin(math.sqrt(a))
+
+
+def to_meters(p: Point, origin: Point) -> Tuple[float, float]:
+    """將經緯度轉換為以 origin 為原點的平面座標（公尺）"""
+    cos_lat = math.cos(math.radians(origin[0]))
+    x = (p[1] - origin[1]) * 111320 * cos_lat
+    y = (p[0] - origin[0]) * 111320
+    return (x, y)
+
+
+def from_meters(p_m: Tuple[float, float], origin: Point) -> Point:
+    """平面座標（公尺）轉回經緯度"""
+    cos_lat = math.cos(math.radians(origin[0]))
+    lat = origin[0] + p_m[1] / 111320
+    lng = origin[1] + p_m[0] / (111320 * cos_lat)
+    return (lat, lng)
+
+
+def _convex_hull_ccw(pts_m: List[Tuple[float, float]]) -> List[int]:
+    """Andrew's monotone chain，回傳逆時針凸包的索引列表"""
+    n = len(pts_m)
+    if n <= 1:
+        return list(range(n))
+    idx = sorted(range(n), key=lambda i: (pts_m[i][0], pts_m[i][1]))
+
+    def cross(o, a, b):
+        return ((pts_m[a][0] - pts_m[o][0]) * (pts_m[b][1] - pts_m[o][1])
+                - (pts_m[a][1] - pts_m[o][1]) * (pts_m[b][0] - pts_m[o][0]))
+
+    lower: List[int] = []
+    for i in idx:
+        while len(lower) >= 2 and cross(lower[-2], lower[-1], i) <= 0:
+            lower.pop()
+        lower.append(i)
+
+    upper: List[int] = []
+    for i in reversed(idx):
+        while len(upper) >= 2 and cross(upper[-2], upper[-1], i) <= 0:
+            upper.pop()
+        upper.append(i)
+
+    return lower[:-1] + upper[:-1]
+
+
+def orbit_route(flowers: List[Point],
+                radius_m: float = FLOWER_RADIUS_M,
+                arc_steps: int = 8) -> dict:
+    """
+    生成沿所有花點圓外側邊界的封閉軌道路線。
+    自動依花點間距計算安全半徑，確保直線段中點也在有效範圍內：
+      safe_r = sqrt(radius_m² - (最長凸包邊/2)²)
+    回傳 dict：
+      waypoints    - 路徑點列表（首尾不重複）
+      radius_used  - 實際使用的半徑（公尺）
+      warnings     - 警告訊息列表
+    """
+    if not flowers:
+        return {"waypoints": [], "radius_used": 0.0, "warnings": []}
+
+    origin = flowers[0]
+    pts_m = [to_meters(f, origin) for f in flowers]
+    hull_idx = _convex_hull_ccw(pts_m)
+    hull_m = [pts_m[i] for i in hull_idx]
+    n = len(hull_m)
+
+    warnings: List[str] = []
+
+    # 計算最大安全半徑（讓所有直線段中點都在有效範圍內）
+    if n == 1:
+        safe_r = radius_m
+    else:
+        max_edge = max(
+            math.hypot(hull_m[(i+1) % n][0] - hull_m[i][0],
+                       hull_m[(i+1) % n][1] - hull_m[i][1])
+            for i in range(n)
+        )
+        if max_edge / 2 >= radius_m:
+            warnings.append(
+                f"⚠️  花點最大間距 {max_edge:.0f}m 超過有效直徑 {radius_m*2:.0f}m，"
+                "圓不相交，無法建立有效軌道"
+            )
+            return {"waypoints": [], "radius_used": 0.0, "warnings": warnings}
+        safe_r = math.sqrt(radius_m ** 2 - (max_edge / 2) ** 2)
+        if safe_r < radius_m * 0.5:
+            warnings.append(
+                f"⚠️  花點間距較大，安全半徑已縮減至 {safe_r:.0f}m"
+            )
+
+    waypoints: List[Point] = []
+
+    for i in range(n):
+        V      = hull_m[i]
+        V_prev = hull_m[(i - 1) % n]
+        V_next = hull_m[(i + 1) % n]
+
+        d_in  = math.degrees(math.atan2(V[1] - V_prev[1], V[0] - V_prev[0]))
+        d_out = math.degrees(math.atan2(V_next[1] - V[1], V_next[0] - V[0]))
+
+        arc_start = (d_in  - 90) % 360
+        arc_end   = (d_out - 90) % 360
+
+        if arc_end <= arc_start:
+            arc_end += 360
+        arc_span = arc_end - arc_start
+
+        steps = max(1, round(arc_steps * arc_span / 360))
+        for j in range(steps + 1):
+            angle = arc_start + arc_span * j / steps
+            x = V[0] + safe_r * math.cos(math.radians(angle))
+            y = V[1] + safe_r * math.sin(math.radians(angle))
+            waypoints.append(from_meters((x, y), origin))
+
+    return {"waypoints": waypoints, "radius_used": safe_r, "warnings": warnings}
+
+
+def _two_opt_open(route: List[Point], max_iter: int = 500) -> List[Point]:
+    """2-opt 改良（開放路徑版，無需回起點）"""
+    best = route[:]
+    improved = True
+    iters = 0
+    while improved and iters < max_iter:
+        improved = False
+        iters += 1
+        n = len(best)
+        for i in range(n - 1):
+            for j in range(i + 2, n):
+                candidate = best[:i+1] + best[i+1:j+1][::-1] + best[j+1:]
+                if route_distance(candidate) < route_distance(best) - 1e-6:
+                    best = candidate
+                    improved = True
+    return best
+
+
+def fruit_route(flowers: List[Point]) -> dict:
+    """
+    種果模式：最短單向路徑，依序經過所有花點（不回起點）。
+    回傳 dict：
+      route      - 最佳路線（花點順序列表）
+      total_dist - 總距離（公尺）
+    """
+    if not flowers:
+        return {"route": [], "total_dist": 0}
+    if len(flowers) == 1:
+        return {"route": flowers[:], "total_dist": 0}
+
+    n = len(flowers)
+    best_route: Optional[List[Point]] = None
+    best_dist = float('inf')
+
+    for start_idx in range(n):
+        visited = [False] * n
+        route = [flowers[start_idx]]
+        visited[start_idx] = True
+        current = start_idx
+
+        while True:
+            next_idx, next_d = None, float('inf')
+            for j in range(n):
+                if not visited[j]:
+                    d = haversine(flowers[current], flowers[j])
+                    if d < next_d:
+                        next_d, next_idx = d, j
+            if next_idx is None:
+                break
+            route.append(flowers[next_idx])
+            visited[next_idx] = True
+            current = next_idx
+
+        route = _two_opt_open(route)
+        dist = route_distance(route)
+        if dist < best_dist:
+            best_dist, best_route = dist, route
+
+    return {"route": best_route, "total_dist": best_dist}
+
+
+def cross2d(ax, ay, bx, by) -> float:
+    return ax * by - ay * bx
+
+
+def segments_intersect(p1: Point, p2: Point, p3: Point, p4: Point,
+                        origin: Point) -> bool:
+    """
+    判斷線段 p1-p2 與 p3-p4 是否相交或重疊（平面近似）
+    共端點不算相交（允許路線在節點銜接）
+    """
+    def eq(a, b):
+        return abs(a[0]-b[0]) < 1e-9 and abs(a[1]-b[1]) < 1e-9
+
+    # 共端點：允許
+    if eq(p1,p3) or eq(p1,p4) or eq(p2,p3) or eq(p2,p4):
+        return False
+
+    a  = to_meters(p1, origin)
+    b  = to_meters(p2, origin)
+    c  = to_meters(p3, origin)
+    d  = to_meters(p4, origin)
+
+    abx, aby = b[0]-a[0], b[1]-a[1]
+    cdx, cdy = d[0]-c[0], d[1]-c[1]
+
+    denom = cross2d(abx, aby, cdx, cdy)
+
+    acx, acy = c[0]-a[0], c[1]-a[1]
+
+    if abs(denom) < 1e-9:
+        # 平行或共線：檢查是否重疊
+        # 先確認共線
+        if abs(cross2d(acx, acy, abx, aby)) > 1e-6:
+            return False  # 平行但不共線
+        # 投影到主軸
+        def proj(p, q, r):
+            dx, dy = q[0]-p[0], q[1]-p[1]
+            denom = dx*dx + dy*dy
+            if denom < 1e-12:
+                return 0.0
+            return ((r[0]-p[0])*dx + (r[1]-p[1])*dy) / denom
+        t0 = proj(a, b, c)
+        t1 = proj(a, b, d)
+        lo, hi = min(t0, t1), max(t0, t1)
+        # 重疊條件（排除剛好端點碰觸）
+        overlap = min(hi, 1.0) - max(lo, 0.0)
+        return overlap > 1e-6
+
+    t = cross2d(acx, acy, cdx, cdy) / denom
+    u = cross2d(acx, acy, abx, aby) / denom
+
+    return (1e-9 < t < 1-1e-9) and (1e-9 < u < 1-1e-9)
+
+
+def route_has_crossing(route: List[Point], origin: Point) -> bool:
+    """檢查路線中是否有任兩線段相交"""
+    segs = [(route[i], route[i+1]) for i in range(len(route)-1)]
+    for i in range(len(segs)):
+        for j in range(i+2, len(segs)):
+            if segments_intersect(segs[i][0], segs[i][1],
+                                   segs[j][0], segs[j][1], origin):
+                return True
+    return False
+
+
+def flowers_covered(route: List[Point], flowers: List[Point]) -> List[int]:
+    """回傳路線覆蓋到的花點索引（任一線段端點在有效範圍內即算）"""
+    covered = set()
+    for pt in route:
+        for i, f in enumerate(flowers):
+            if haversine(pt, f) <= FLOWER_RADIUS_M:
+                covered.add(i)
+    # 也檢查線段上的最近點
+    origin = flowers[0] if flowers else route[0]
+    for i, f in enumerate(flowers):
+        if i in covered:
+            continue
+        fm = to_meters(f, origin)
+        for k in range(len(route)-1):
+            am = to_meters(route[k],   origin)
+            bm = to_meters(route[k+1], origin)
+            d  = point_to_segment_dist(fm, am, bm)
+            if d <= FLOWER_RADIUS_M:
+                covered.add(i)
+                break
+    return sorted(covered)
+
+
+def point_to_segment_dist(p, a, b) -> float:
+    """點 p 到線段 ab 的最短距離（平面，公尺）"""
+    dx, dy = b[0]-a[0], b[1]-a[1]
+    if dx == 0 and dy == 0:
+        return math.hypot(p[0]-a[0], p[1]-a[1])
+    t = ((p[0]-a[0])*dx + (p[1]-a[1])*dy) / (dx*dx + dy*dy)
+    t = max(0.0, min(1.0, t))
+    nx, ny = a[0]+t*dx, a[1]+t*dy
+    return math.hypot(p[0]-nx, p[1]-ny)
+
+
+def route_distance(route: List[Point]) -> float:
+    return sum(haversine(route[i], route[i+1]) for i in range(len(route)-1))
+
+
+# ════════════════════════════════════════════════════════════
+# 核心演算法：貪婪 + 回溯改良
+# ════════════════════════════════════════════════════════════
+
+def greedy_route(flowers: List[Point], start_idx: int) -> List[Point]:
+    """
+    從指定花點出發，貪婪地找下一個最近且未訪問的花點，
+    最後回到起點，形成循環路線。
+    """
+    n = len(flowers)
+    visited = [False] * n
+    route = [flowers[start_idx]]
+    visited[start_idx] = True
+    current = start_idx
+
+    while True:
+        best_next = None
+        best_dist = float('inf')
+        for j in range(n):
+            if not visited[j]:
+                d = haversine(flowers[current], flowers[j])
+                if d < best_dist:
+                    best_dist = d
+                    best_next = j
+        if best_next is None:
+            break
+        route.append(flowers[best_next])
+        visited[best_next] = True
+        current = best_next
+
+    route.append(flowers[start_idx])  # 回起點
+    return route
+
+
+def two_opt(route: List[Point], origin: Point,
+            max_iter: int = 500) -> List[Point]:
+    """
+    2-opt 改良：嘗試交換線段以縮短距離，同時確保不產生路徑交叉。
+    循環路線（首尾相同），操作 route[1:-1] 部分。
+    """
+    best = route[:]
+    improved = True
+    iters = 0
+    while improved and iters < max_iter:
+        improved = False
+        iters += 1
+        n = len(best) - 1  # 不含最後的重複起點
+        for i in range(1, n - 1):
+            for j in range(i + 1, n):
+                # 反轉 i..j 段
+                candidate = best[:i] + best[i:j+1][::-1] + best[j+1:]
+                if route_has_crossing(candidate, origin):
+                    continue
+                if route_distance(candidate) < route_distance(best) - 1e-6:
+                    best = candidate
+                    improved = True
+    return best
+
+
+def plan_route(flowers: List[Point], speed_kmh: float = WALK_SPEED_MPS * 3.6) -> dict:
+    """
+    主函式：嘗試所有起點，回傳最佳結果。
+    speed_kmh: 移動速度（km/h），用於計算時間限制，預設同 WALK_SPEED_MPS
+    回傳 dict：
+      route       - 完整路線（含回起點）
+      covered     - 有效花點索引列表
+      total_dist  - 總距離（公尺）
+      valid       - 是否符合時間與無交叉限制
+      warnings    - 警告訊息列表
+    """
+    if not flowers:
+        return {"route": [], "covered": [], "total_dist": 0,
+                "valid": False, "warnings": ["未輸入任何花點"]}
+
+    speed_mps = max(speed_kmh / 3.6, 0.1)
+    max_dist  = speed_mps * TIME_LIMIT_SEC
+
+    origin = flowers[0]
+    best_result = None
+    best_score  = -1
+
+    for start_idx in range(len(flowers)):
+        # 1. 貪婪初始路線
+        route = greedy_route(flowers, start_idx)
+
+        # 2. 2-opt 改良（縮短距離、消除交叉）
+        route = two_opt(route, origin)
+
+        # 3. 評估
+        dist     = route_distance(route)
+        covered  = flowers_covered(route, flowers)
+        crossing = route_has_crossing(route, origin)
+        score    = len(covered) * 1000 - dist  # 優先最多花，次要最短路
+
+        if score > best_score:
+            best_score  = score
+            best_result = {
+                "route":      route,
+                "covered":    covered,
+                "total_dist": dist,
+                "crossing":   crossing,
+            }
+
+    route    = best_result["route"]
+    covered  = best_result["covered"]
+    dist     = best_result["total_dist"]
+    crossing = best_result["crossing"]
+
+    warnings = []
+    if dist > max_dist:
+        warnings.append(
+            f"⚠️  總距離 {dist:.0f}m 超過 5 分鐘上限"
+            f"（{speed_kmh:.1f} km/h 可走約 {max_dist:.0f}m）"
+        )
+    if crossing:
+        warnings.append("⚠️  路線仍存在交叉（花點分佈複雜，建議手動調整）")
+
+    return {
+        "route":      route,
+        "covered":    covered,
+        "total_dist": dist,
+        "valid":      dist <= max_dist and not crossing,
+        "warnings":   warnings,
+        "speed_mps":  speed_mps,
+    }
+
+
+# ════════════════════════════════════════════════════════════
+# 輸出格式化
+# ════════════════════════════════════════════════════════════
+
+def print_result(flowers: List[Point], result: dict):
+    route    = result["route"]
+    covered  = result["covered"]
+    dist     = result["total_dist"]
+    warnings = result["warnings"]
+
+    print("=" * 55)
+    print("  🌸 花點路線規劃結果")
+    print("=" * 55)
+
+    print(f"\n📍 輸入花點（共 {len(flowers)} 個）：")
+    for i, f in enumerate(flowers):
+        tag = "✅" if i in covered else "❌"
+        print(f"   花點 {i+1:>2}  {f[0]:.8f}, {f[1]:.9f}  {tag}")
+
+    print(f"\n🗺️  最佳路線（共 {len(route)-1} 段）：")
+    for i, pt in enumerate(route):
+        label = "（起點）" if i == 0 else ("（回起點）" if i == len(route)-1 else "")
+        print(f"   WP{i+1:02d}  {pt[0]:.8f}, {pt[1]:.9f}  {label}")
+
+    print(f"\n📊 統計：")
+    print(f"   有效花點數：{len(covered)} / {len(flowers)}")
+    print(f"   總距離：    {dist:.1f} 公尺")
+    print(f"   預估時間：  {dist/WALK_SPEED_MPS/60:.1f} 分鐘（步行 {WALK_SPEED_MPS*3.6:.1f} km/h）")
+    print(f"   5 分鐘限制：{'✅ 符合' if dist <= MAX_WALK_DIST_M else '❌ 超過'}")
+
+    if warnings:
+        print("\n⚠️  警告：")
+        for w in warnings:
+            print(f"   {w}")
+
+    print("\n" + "=" * 55)
+
+
+# ════════════════════════════════════════════════════════════
+# 主程式入口
+# ════════════════════════════════════════════════════════════
+
+def parse_input() -> List[Point]:
+    """互動式輸入花點座標"""
+    print("=" * 55)
+    print("  🌸 花點路線規劃器")
+    print("=" * 55)
+    print("輸入格式：緯度,經度  （每行一點）")
+    print("輸入完畢後按 Enter 留空行結束\n")
+
+    flowers = []
+    while True:
+        try:
+            line = input(f"  花點 {len(flowers)+1}：").strip()
+        except EOFError:
+            break
+        if not line:
+            if len(flowers) >= 2:
+                break
+            print("  ⚠️  請至少輸入 2 個花點")
+            continue
+        try:
+            parts = line.replace("，", ",").split(",")
+            lat = float(parts[0].strip())
+            lng = float(parts[1].strip())
+            if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+                raise ValueError
+            flowers.append((lat, lng))
+            print(f"         ✅ 已加入 ({lat:.6f}, {lng:.6f})")
+        except (ValueError, IndexError):
+            print("  ❌ 格式錯誤，請輸入如：25.021056,121.739472")
+
+    return flowers
+
+
+if __name__ == "__main__":
+    # ── 互動模式 ──────────────────────────────────────────
+    flowers = parse_input()
+
+    if len(flowers) < 2:
+        print("花點不足，無法規劃路線。")
+    else:
+        print("\n⏳ 計算最佳路線中...\n")
+        result = plan_route(flowers)
+        print_result(flowers, result)
+
+    # ── 也可直接呼叫 plan_route() 程式化使用 ──────────────
+    # flowers = [
+    #     (25.021056, 121.739472),
+    #     (25.021278, 121.739500),
+    #     (25.021500, 121.739600),
+    # ]
+    # result = plan_route(flowers)
+    # print_result(flowers, result)
