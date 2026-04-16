@@ -9,6 +9,7 @@ import tunnel
 import location
 import patrol as patrol_module
 from list_editor import ListEditorWindow
+from favorites_manager import FavoritesManagerWindow, CATEGORIES
 from version import __version__
 
 # ── 收藏地點 ─────────────────────────────────────────────────────────────────
@@ -17,10 +18,31 @@ favorites = storage.load_favorites()
 
 
 def update_favorites_menu():
-    fav_menu["menu"].delete(0, tk.END)
-    fav_menu["menu"].add_command(label="-- 選擇收藏地點 --", command=lambda: fav_var.set(""))
-    for name in favorites.keys():
-        fav_menu["menu"].add_command(label=name, command=lambda n=name: select_favorite(n))
+    menu = fav_menu["menu"]
+    menu.delete(0, tk.END)
+    menu.add_command(label="-- 選擇收藏地點 --", command=lambda: fav_var.set(""))
+
+    has_categories = any("category" in d for d in favorites.values())
+    if not has_categories:
+        for name in favorites:
+            menu.add_command(label=name, command=lambda n=name: select_favorite(n))
+        return
+
+    groups: dict[str, list[str]] = {}
+    for name, data in favorites.items():
+        cat = data.get("category", "其他")
+        groups.setdefault(cat, []).append(name)
+
+    first = True
+    for cat in CATEGORIES:
+        if cat not in groups:
+            continue
+        if not first:
+            menu.add_separator()
+        first = False
+        menu.add_command(label=f"── {cat} ({len(groups[cat])}) ──", state="disabled")
+        for name in groups[cat]:
+            menu.add_command(label=name, command=lambda n=name: select_favorite(n))
 
 
 def select_favorite(name):
@@ -107,6 +129,7 @@ def import_favorites():
 
 coord_list_items: list = []
 _list_editor_win = None
+_fav_manager_win = None
 
 
 def refresh_main_listbox():
@@ -157,6 +180,21 @@ def on_coord_list_select(event):
     lng_entry.delete(0, tk.END)
     lng_entry.insert(0, item["lng"])
     set_location()
+
+
+def open_favorites_manager():
+    global _fav_manager_win
+    if _fav_manager_win is not None:
+        try:
+            if _fav_manager_win.win.winfo_exists():
+                _fav_manager_win.win.lift()
+                _fav_manager_win.win.focus_force()
+                return
+        except Exception:
+            pass
+    _fav_manager_win = FavoritesManagerWindow(
+        root, favorites, on_save=update_favorites_menu,
+    )
 
 
 def open_list_editor():
@@ -340,6 +378,7 @@ fav_menu.pack(side=tk.LEFT)
 tk.Button(fav_frame, text="⭐ 收藏", command=add_favorite).pack(side=tk.LEFT, padx=5)
 tk.Button(fav_frame, text="🗑️ 刪除", command=delete_favorite).pack(side=tk.LEFT)
 tk.Button(fav_frame, text="📥 匯入", command=import_favorites).pack(side=tk.LEFT, padx=5)
+tk.Button(fav_frame, text="📋 分類", command=open_favorites_manager).pack(side=tk.LEFT, padx=5)
 update_favorites_menu()
 
 # 座標清單（右側欄）
