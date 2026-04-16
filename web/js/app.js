@@ -199,8 +199,10 @@ const app = {
     async goToFavorite(name) {
         const fav = this.state.favorites[name];
         if (!fav) return;
-        mapModule.flyTo(fav.lat, fav.lng, 17);
-        await this.setLocationAt(fav.lat, fav.lng);
+        const lat = parseFloat(fav.lat);
+        const lng = parseFloat(fav.lng);
+        mapModule.flyTo(lat, lng, 17);
+        await this.setLocationAt(lat, lng);
     },
 
     async deleteFavorite(name) {

@@ -60,14 +60,17 @@ const mapModule = {
 
         for (const [name, fav] of Object.entries(favorites)) {
             const cat = fav.category || '其他';
-            const marker = L.marker([fav.lat, fav.lng], {
+            const lat = parseFloat(fav.lat);
+            const lng = parseFloat(fav.lng);
+            if (isNaN(lat) || isNaN(lng)) continue;
+            const marker = L.marker([lat, lng], {
                 icon: this.createFavoriteIcon(cat),
             }).addTo(this.map);
 
             const popupHtml = `
                 <div style="font-size:13px;min-width:140px">
                     <strong>${this.escapeHtml(name)}</strong><br>
-                    <span style="font-size:11px;color:#888">${cat} · ${fav.lat.toFixed(5)}, ${fav.lng.toFixed(5)}</span><br>
+                    <span style="font-size:11px;color:#888">${cat} · ${lat.toFixed(5)}, ${lng.toFixed(5)}</span><br>
                     <div style="margin-top:6px;display:flex;gap:4px">
                         <button onclick="app.goToFavorite('${this.escapeAttr(name)}')" style="padding:3px 8px;cursor:pointer;border-radius:4px;border:none;background:#5b8def;color:#fff;font-size:11px">Go</button>
                         <button onclick="app.deleteFavorite('${this.escapeAttr(name)}')" style="padding:3px 8px;cursor:pointer;border-radius:4px;border:none;background:#e74c3c;color:#fff;font-size:11px">Delete</button>
@@ -113,7 +116,10 @@ const mapModule = {
         const latlngs = [];
 
         items.forEach((item, i) => {
-            const marker = L.marker([item.lat, item.lng], {
+            const lat = parseFloat(item.lat);
+            const lng = parseFloat(item.lng);
+            if (isNaN(lat) || isNaN(lng)) return;
+            const marker = L.marker([lat, lng], {
                 icon: this.createWaypointIcon(i + 1),
                 draggable: true,
             }).addTo(this.map);
@@ -127,7 +133,7 @@ const mapModule = {
 
             marker.bindTooltip(item.name || `#${i + 1}`, { direction: 'top', offset: [0, -14] });
             this.routeMarkers.push(marker);
-            latlngs.push([item.lat, item.lng]);
+            latlngs.push([lat, lng]);
         });
 
         this.routePolyline = L.polyline(latlngs, {
@@ -159,7 +165,7 @@ const mapModule = {
     showFlowerCircles(items, radiusM = 40) {
         this.hideFlowerCircles();
         items.forEach((item) => {
-            const circle = L.circle([item.lat, item.lng], {
+            const circle = L.circle([parseFloat(item.lat), parseFloat(item.lng)], {
                 radius: radiusM,
                 color: '#e74c8b',
                 fillColor: '#e74c8b',
@@ -238,7 +244,7 @@ const mapModule = {
     },
 
     flyTo(lat, lng, zoom) {
-        this.map.flyTo([lat, lng], zoom || this.map.getZoom(), { duration: 0.8 });
+        this.map.flyTo([parseFloat(lat), parseFloat(lng)], zoom || this.map.getZoom(), { duration: 0.8 });
     },
 
     fitBounds(items) {
