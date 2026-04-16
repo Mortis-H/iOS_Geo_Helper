@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from datetime import datetime
 
 from config import FAVORITES_FILE, HISTORY_DIR
@@ -59,4 +60,29 @@ def parse_coord_list_file(filepath):
                     "lng": str(coords["lng"]),
                     "dwell": int(coords.get("dwell", 60)),
                 })
+    return items
+
+
+def parse_coord_text(text, default_dwell=60):
+    items = []
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        m = re.match(r'^([-\d.]+)\s*,\s*([-\d.]+)$', line)
+        if m:
+            lat, lng = m.group(1), m.group(2)
+            items.append({"name": f"{lat}, {lng}", "lat": lat, "lng": lng, "dwell": default_dwell})
+            continue
+        parts = line.split()
+        if len(parts) >= 2:
+            try:
+                lng = parts[-1]
+                lat = parts[-2]
+                float(lat)
+                float(lng)
+                name = " ".join(parts[:-2]) if len(parts) > 2 else f"{lat}, {lng}"
+                items.append({"name": name, "lat": lat, "lng": lng, "dwell": default_dwell})
+            except ValueError:
+                pass
     return items

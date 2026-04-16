@@ -17,7 +17,7 @@ class PatrolController:
 
     def __init__(self, location_fn):
         """
-        location_fn: callable(lat: str, lng: str, save_history=False, _fetch_name=False)
+        location_fn: callable(lat: str, lng: str, save_history=False, fetch_name=False)
             對應 set_location_direct，由外部注入以解耦 UI 依賴。
         """
         self._location_fn = location_fn
@@ -82,7 +82,7 @@ class PatrolController:
                 if not self._travel_between(prev_lat, prev_lng, target_lat, target_lng, idx, item["name"]):
                     break
             else:
-                self._location_fn(item["lat"], item["lng"], save_history=False, _fetch_name=False)
+                self._location_fn(item["lat"], item["lng"], save_history=False, fetch_name=False)
             if self._stop_event.is_set():
                 break
             prev_lat, prev_lng = target_lat, target_lng
@@ -129,7 +129,7 @@ class PatrolController:
         import time
         dist_m = _haversine(lat1, lng1, lat2, lng2)
         if dist_m < 5:
-            self._location_fn(str(lat2), str(lng2), save_history=False, _fetch_name=False)
+            self._location_fn(str(lat2), str(lng2), save_history=False, fetch_name=False)
             return True
         speed_mps = self._speed_kmh * 1000 / 3600
         STEP_S = 5
@@ -143,10 +143,10 @@ class PatrolController:
             t = step / n_steps
             lat = lat1 + (lat2 - lat1) * t
             lng = lng1 + (lng2 - lng1) * t
-            self._location_fn(str(lat), str(lng), save_history=False, _fetch_name=False)
+            self._location_fn(str(lat), str(lng), save_history=False, fetch_name=False)
             if self.on_travel:
                 try:
-                    self.on_travel(idx_to, name_to, dist_m * (1 - t))
+                    self.on_travel(idx_to, name_to, dist_m * (1 - t), lat, lng)
                 except Exception:
                     pass
             for _ in range(STEP_S * 10):  # 0.1s × (STEP_S×10) = STEP_S 秒

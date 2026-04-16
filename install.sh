@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-echo "=== iOS 虛擬定位工具 安裝腳本 ==="
+echo "=== iOS Geo Helper 安裝腳本 ==="
 echo ""
 
 # 取得腳本所在目錄
@@ -24,14 +24,6 @@ else
     brew install python
 fi
 
-# 檢查 Tkinter
-if python3 -c "import tkinter" &> /dev/null; then
-    echo "✅ Tkinter 已安裝"
-else
-    echo "📦 安裝 Tkinter..."
-    brew install python-tk@3.14
-fi
-
 # 檢查 pipx
 if command -v pipx &> /dev/null; then
     echo "✅ pipx 已安裝"
@@ -49,6 +41,10 @@ else
     echo "📦 安裝 pymobiledevice3..."
     pipx install pymobiledevice3
 fi
+
+# 安裝 Python 依賴（pywebview）
+echo "📦 安裝 Python 依賴..."
+pip3 install -r "$SCRIPT_DIR/requirements.txt"
 
 # 取得 Homebrew Python 路徑
 PYTHON_PATH=$(brew --prefix python)/bin/python3
@@ -72,7 +68,7 @@ export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
 SCRIPT_DIR="$(cd "$(dirname "$(dirname "$(dirname "$(dirname "$0")")")")" && pwd)"
 PYTHON_PATH="$(brew --prefix python)/bin/python3"
 cd "$SCRIPT_DIR"
-"$PYTHON_PATH" app.py
+"$PYTHON_PATH" main.py
 SCRIPT
 chmod +x "$APP_DIR/iOS虛擬定位"
 
@@ -84,7 +80,7 @@ cat > "$SCRIPT_DIR/iOS虛擬定位.app/Contents/Info.plist" << 'EOF'
     <key>CFBundleExecutable</key>
     <string>iOS虛擬定位</string>
     <key>CFBundleName</key>
-    <string>iOS虛擬定位</string>
+    <string>iOS Geo Helper</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>LSUIElement</key>
@@ -98,5 +94,6 @@ echo "✅ 安裝完成！"
 echo ""
 echo "使用方式："
 echo "1. 雙擊「iOS虛擬定位.app」開啟程式"
-echo "2. iPhone 連接電腦並信任此電腦"
-echo "3. iOS 17+ 需開啟：設定 > 隱私權與安全性 > 開發者模式"
+echo "2. 或在終端機執行：python3 main.py"
+echo "3. iPhone 連接電腦並信任此電腦"
+echo "4. iOS 17+ 需開啟：設定 > 隱私權與安全性 > 開發者模式"

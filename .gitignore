@@ -1,10 +1,9 @@
-*.json
-favorites.json
+history/
+route/
 .build_venv/
 build/
 dist/
 *.spec
 .claude/
-route/
 __pycache__/
 *.png

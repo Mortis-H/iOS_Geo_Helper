@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iOS Geo Helper</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="map"></div>
+
+    <div id="sidebar" class="sidebar">
+        <button id="sidebar-toggle" class="sidebar-toggle" title="收合">◀</button>
+        <div class="sidebar-tabs">
+            <button class="tab active" data-tab="location">定位</button>
+            <button class="tab" data-tab="favorites">收藏</button>
+            <button class="tab" data-tab="route">路線</button>
+            <button class="tab" data-tab="patrol">巡邏</button>
+        </div>
+        <div class="sidebar-body">
+
+            <div id="tab-location" class="tab-content active">
+                <div class="section">
+                    <label class="section-label">Tunnel 狀態</label>
+                    <div id="tunnel-status" class="tunnel-status">
+                        <span class="dot red"></span>
+                        <span id="tunnel-text">Tunnel 未啟動</span>
+                    </div>
+                    <div class="btn-row">
+                        <button id="btn-start-tunnel" class="btn" onclick="app.startTunnel()">▶ 啟動</button>
+                        <button id="btn-stop-tunnel" class="btn" onclick="app.stopTunnel()">⏹ 停止</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <label class="section-label">Google Maps 連結</label>
+                    <div class="input-row">
+                        <input type="text" id="input-url" placeholder="貼上 Google Maps 連結...">
+                        <button class="btn" onclick="app.parseUrl()">解析</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <label class="section-label">座標字串</label>
+                    <div class="input-row">
+                        <input type="text" id="input-coords" placeholder="25.033, 121.565">
+                        <button class="btn" onclick="app.parseCoords()">解析</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <label class="section-label">座標</label>
+                    <div class="coord-inputs">
+                        <div class="coord-field">
+                            <label>緯度</label>
+                            <input type="number" id="input-lat" step="any" value="25.0330">
+                        </div>
+                        <div class="coord-field">
+                            <label>經度</label>
+                            <input type="number" id="input-lng" step="any" value="121.5654">
+                        </div>
+                    </div>
+                    <div class="btn-row">
+                        <button class="btn primary" onclick="app.setLocation()">📍 設定位置</button>
+                        <button class="btn" onclick="app.clearLocation()">清除</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div id="status-area" class="status-msg"></div>
+                </div>
+
+                <div class="section">
+                    <div id="location-name" class="location-name"></div>
+                </div>
+            </div>
+
+            <div id="tab-favorites" class="tab-content">
+                <div class="section">
+                    <label class="section-label">分類篩選</label>
+                    <div class="category-toggles">
+                        <label><input type="checkbox" class="cat-filter" data-cat="純點" checked><span class="cat-dot" style="background:var(--cat-pure)"></span>純點</label>
+                        <label><input type="checkbox" class="cat-filter" data-cat="花點" checked><span class="cat-dot" style="background:var(--cat-flower)"></span>花點</label>
+                        <label><input type="checkbox" class="cat-filter" data-cat="菇點" checked><span class="cat-dot" style="background:var(--cat-mushroom)"></span>菇點</label>
+                        <label><input type="checkbox" class="cat-filter" data-cat="其他" checked><span class="cat-dot" style="background:var(--cat-other)"></span>其他</label>
+                    </div>
+                </div>
+                <div id="favorites-list" class="item-list"></div>
+                <div class="section" style="margin-top:8px">
+                    <div class="btn-row">
+                        <button class="btn" onclick="app.addCurrentToFavorites()">⭐ 加入目前位置</button>
+                        <button class="btn" onclick="app.autoCategorize()">🏷 自動分類</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="tab-route" class="tab-content">
+                <div class="section">
+                    <div class="btn-row">
+                        <button class="btn" onclick="app.loadRouteFile()">📂 載入</button>
+                        <button class="btn" onclick="app.saveRouteFile()">💾 儲存</button>
+                        <button class="btn" onclick="app.editRouteText()">📝 編輯</button>
+                        <button class="btn" onclick="app.clearRoute()">🗑 清除</button>
+                    </div>
+                </div>
+                <div class="section">
+                    <span id="route-count" class="text-muted">共 0 個路點</span>
+                </div>
+                <div id="route-list" class="item-list sortable"></div>
+                <div class="section" style="margin-top:8px">
+                    <label class="section-label">預設停留 (秒)</label>
+                    <input type="number" id="input-default-dwell" value="60" min="0" style="width:80px">
+                </div>
+                <div class="section">
+                    <label class="section-label">路線規劃</label>
+                    <div class="input-row">
+                        <label style="white-space:nowrap">速度</label>
+                        <input type="number" id="input-plan-speed" value="20" min="0" style="width:70px">
+                        <span class="text-muted">km/h</span>
+                    </div>
+                    <div class="btn-row" style="margin-top:6px">
+                        <button class="btn" onclick="app.planRoute()">🧭 規劃</button>
+                        <button class="btn" onclick="app.orbitRoute()">🔄 繞圈</button>
+                        <button class="btn" onclick="app.fruitRoute()">🍎 採果</button>
+                    </div>
+                </div>
+                <div class="section">
+                    <label><input type="checkbox" id="chk-show-circles"> 顯示花圈範圍</label>
+                </div>
+            </div>
+
+            <div id="tab-patrol" class="tab-content">
+                <div class="section">
+                    <label class="section-label">移動速度</label>
+                    <div class="input-row">
+                        <input type="number" id="input-patrol-speed" value="20" min="0" style="width:80px">
+                        <span class="text-muted">km/h, 0=瞬間跳轉</span>
+                    </div>
+                </div>
+                <div class="section">
+                    <label class="section-label">模式</label>
+                    <div class="radio-group">
+                        <label><input type="radio" name="patrol-mode" value="loop" checked> 循環</label>
+                        <label><input type="radio" name="patrol-mode" value="pingpong"> 來回</label>
+                        <label><input type="radio" name="patrol-mode" value="once"> 單次</label>
+                    </div>
+                </div>
+                <div class="section">
+                    <div class="btn-row">
+                        <button id="btn-patrol-start" class="btn primary" onclick="app.startPatrol()">▶ 開始</button>
+                        <button id="btn-patrol-pause" class="btn" onclick="app.togglePausePatrol()" disabled>⏸ 暫停</button>
+                        <button id="btn-patrol-stop" class="btn" onclick="app.stopPatrol()" disabled>⏹ 停止</button>
+                    </div>
+                </div>
+                <div class="section">
+                    <div id="patrol-status" class="patrol-status"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="context-menu" class="context-menu" style="display:none">
+        <div class="context-item" onclick="app.contextSetLocation()">📍 設定位置到這裡</div>
+        <div class="context-item" onclick="app.contextAddToRoute()">➕ 加入路線</div>
+        <div class="context-item" onclick="app.contextAddToFavorites()">⭐ 加入收藏</div>
+    </div>
+
+    <div id="modal-overlay" class="modal-overlay" style="display:none">
+        <div class="modal">
+            <h3>編輯座標文字</h3>
+            <p class="text-muted">支援格式：lat,lng / lat lng / name lat lng / # 開頭為註解</p>
+            <textarea id="modal-textarea" rows="12" placeholder="每行一個座標..."></textarea>
+            <div class="input-row" style="margin-top:8px">
+                <label style="white-space:nowrap">預設停留 (秒)</label>
+                <input type="number" id="modal-default-dwell" value="60" min="0" style="width:80px">
+            </div>
+            <div class="btn-row" style="margin-top:12px">
+                <button class="btn primary" onclick="app.applyTextEdit()">✅ Parse & Apply</button>
+                <button class="btn" onclick="app.closeModal()">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/sidebar.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
