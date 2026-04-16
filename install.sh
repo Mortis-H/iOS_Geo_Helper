@@ -67,19 +67,17 @@ fi
 
 cat > "$APP_DIR/iOS虛擬定位" << 'SCRIPT'
 #!/bin/zsh
+source ~/.zshrc 2>/dev/null
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
 SCRIPT_DIR="$(cd "$(dirname "$(dirname "$(dirname "$(dirname "$0")")")")" && pwd)"
 LOG_FILE="$SCRIPT_DIR/.app_launch.log"
 exec > "$LOG_FILE" 2>&1
 echo "=== Launch $(date) ==="
 echo "SCRIPT_DIR=$SCRIPT_DIR"
-echo "PATH=$PATH"
-
-PYTHON_PATH="$(brew --prefix python 2>/dev/null)/bin/python3"
-if [ ! -x "$PYTHON_PATH" ]; then
-    PYTHON_PATH="$(which python3)"
-fi
+PYTHON_PATH="$(which python3)"
 echo "PYTHON_PATH=$PYTHON_PATH"
+echo "webview check:"
+"$PYTHON_PATH" -c "import webview; print('OK', webview.__version__)" 2>&1
 
 cd "$SCRIPT_DIR"
 "$PYTHON_PATH" main.py
