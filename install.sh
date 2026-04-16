@@ -83,8 +83,6 @@ cat > "$SCRIPT_DIR/iOS虛擬定位.app/Contents/Info.plist" << 'EOF'
     <string>iOS Geo Helper</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
-    <key>LSUIElement</key>
-    <true/>
 </dict>
 </plist>
 EOF
