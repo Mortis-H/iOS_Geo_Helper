@@ -241,9 +241,10 @@ const app = {
     async autoCategorize() {
         try {
             this.setStatus('正在自動分類...', false);
-            await window.pywebview.api.auto_categorize();
+            const result = await window.pywebview.api.auto_categorize_favorites();
+            const moved = (result && result.moved) || 0;
             await this.loadFavorites();
-            this.setStatus('自動分類完成', false);
+            this.setStatus(`自動分類完成，移動了 ${moved} 筆`, false);
         } catch (e) {
             this.setStatus('自動分類失敗: ' + e.message, true);
         }
