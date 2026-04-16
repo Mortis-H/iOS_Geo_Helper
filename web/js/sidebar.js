@@ -83,23 +83,25 @@ const sidebar = {
             container.appendChild(header);
 
             items.forEach((fav) => {
+                const lat = parseFloat(fav.lat);
+                const lng = parseFloat(fav.lng);
                 const el = document.createElement('div');
-                el.className = 'list-item';
+                el.className = 'list-item clickable';
                 el.innerHTML = `
                     <span class="cat-dot" style="background:${this.CATEGORY_COLORS[fav.category || '其他']}"></span>
                     <div class="item-info">
                         <div class="item-name">${this.escapeHtml(fav.name)}</div>
-                        <div class="item-sub">${fav.lat.toFixed(5)}, ${fav.lng.toFixed(5)}</div>
+                        <div class="item-sub">${isNaN(lat) ? fav.lat : lat.toFixed(5)}, ${isNaN(lng) ? fav.lng : lng.toFixed(5)}</div>
                     </div>
                     <div class="item-actions">
-                        <select class="cat-select" onchange="app.changeFavoriteCategory('${this.escapeAttr(fav.name)}', this.value)">
+                        <select class="cat-select" onclick="event.stopPropagation()" onchange="app.changeFavoriteCategory('${this.escapeAttr(fav.name)}', this.value)">
                             ${this.CATEGORY_ORDER.map((c) =>
                                 `<option value="${c}" ${c === (fav.category || '其他') ? 'selected' : ''}>${c}</option>`
                             ).join('')}
                         </select>
-                        <button class="btn" onclick="app.goToFavorite('${this.escapeAttr(fav.name)}')" title="前往">📍</button>
-                        <button class="btn" onclick="app.deleteFavorite('${this.escapeAttr(fav.name)}')" title="刪除">✕</button>
+                        <button class="btn" onclick="event.stopPropagation(); app.deleteFavorite('${this.escapeAttr(fav.name)}')" title="刪除">✕</button>
                     </div>`;
+                el.addEventListener('click', () => app.goToFavorite(fav.name));
                 container.appendChild(el);
             });
         }
@@ -112,8 +114,10 @@ const sidebar = {
         countLabel.textContent = `共 ${items.length} 個路點`;
 
         items.forEach((item, i) => {
+            const lat = parseFloat(item.lat);
+            const lng = parseFloat(item.lng);
             const el = document.createElement('div');
-            el.className = 'list-item draggable';
+            el.className = 'list-item draggable clickable';
             el.draggable = true;
             el.dataset.index = i;
 
@@ -125,13 +129,17 @@ const sidebar = {
                 <span style="font-weight:600;min-width:20px">${i + 1}</span>
                 <div class="item-info">
                     <div class="item-name">${this.escapeHtml(displayName)}</div>
-                    <div class="item-sub">${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}</div>
+                    <div class="item-sub">${isNaN(lat) ? item.lat : lat.toFixed(5)}, ${isNaN(lng) ? item.lng : lng.toFixed(5)}</div>
                 </div>
                 ${dwellText ? `<span class="dwell-badge">${dwellText}</span>` : ''}
                 <div class="item-actions">
-                    <button class="btn" onclick="app.goToRoutePoint(${i})" title="前往">📍</button>
-                    <button class="btn" onclick="app.removeRoutePoint(${i})" title="移除">✕</button>
+                    <button class="btn" onclick="event.stopPropagation(); app.removeRoutePoint(${i})" title="移除">✕</button>
                 </div>`;
+
+            el.addEventListener('click', (e) => {
+                if (e.target.closest('.drag-handle') || e.target.closest('.item-actions')) return;
+                app.goToRoutePoint(i);
+            });
 
             el.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('text/plain', i.toString());

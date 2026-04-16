@@ -262,14 +262,15 @@ const app = {
 
     async loadRouteFile() {
         try {
-            const path = await window.pywebview.api.open_file_dialog('json');
+            const dlg = await window.pywebview.api.open_file_dialog();
+            const path = dlg && dlg.filepath;
             if (!path) return;
-            const items = await window.pywebview.api.load_coord_list(path);
-            if (items && items.error) {
-                this.setStatus(items.error, true);
+            const result = await window.pywebview.api.load_coord_list(path);
+            if (result && result.error) {
+                this.setStatus(result.error, true);
                 return;
             }
-            this.state.route = items || [];
+            this.state.route = (result && result.items) || [];
             this.updateRoute();
             if (this.state.route.length > 0) {
                 mapModule.fitBounds(this.state.route);
@@ -286,7 +287,8 @@ const app = {
             return;
         }
         try {
-            const path = await window.pywebview.api.save_file_dialog('json');
+            const dlg = await window.pywebview.api.save_file_dialog();
+            const path = dlg && dlg.filepath;
             if (!path) return;
             const result = await window.pywebview.api.save_coord_list(path, this.state.route);
             if (result && result.error) {
@@ -316,12 +318,12 @@ const app = {
         const text = document.getElementById('modal-textarea').value;
         const defaultDwell = parseInt(document.getElementById('modal-default-dwell').value) || 60;
         try {
-            const items = await window.pywebview.api.parse_coord_text(text, defaultDwell);
-            if (items && items.error) {
-                this.setStatus(items.error, true);
+            const result = await window.pywebview.api.parse_coord_text(text, defaultDwell);
+            if (result && result.error) {
+                this.setStatus(result.error, true);
                 return;
             }
-            this.state.route = items || [];
+            this.state.route = (result && result.items) || [];
             this.updateRoute();
             this.closeModal();
             if (this.state.route.length > 0) {
@@ -392,9 +394,15 @@ const app = {
                 this.setStatus(result.error, true);
                 return;
             }
-            this.state.route = result || this.state.route;
+            this.state.route = (result && result.items) || this.state.route;
             this.updateRoute();
-            this.setStatus(`路線規劃完成，共 ${this.state.route.length} 個路點`, false);
+            const covered = result.covered ? result.covered.length : '?';
+            const dist = result.total_dist ? Math.round(result.total_dist) : '?';
+            let msg = `路線規劃完成：覆蓋 ${covered}/${this.state.route.length} 花點，距離 ${dist}m`;
+            if (result.warnings && result.warnings.length > 0) {
+                msg += '\n' + result.warnings.join('\n');
+            }
+            this.setStatus(msg, false);
         } catch (e) {
             this.setStatus('規劃失敗: ' + e.message, true);
         }
@@ -408,14 +416,18 @@ const app = {
         const speed = parseFloat(document.getElementById('input-plan-speed').value) || 20;
         try {
             this.setStatus('正在產生繞圈路線...', false);
-            const result = await window.pywebview.api.orbit_route(this.state.route, speed);
+            const result = await window.pywebview.api.orbit_route(this.state.route);
             if (result && result.error) {
-                this.setStatus(result.error, true);
+                let msg = result.error;
+                if (result.warnings && result.warnings.length > 0) msg += '\n' + result.warnings.join('\n');
+                this.setStatus(msg, true);
                 return;
             }
-            this.state.route = result || this.state.route;
+            this.state.route = (result && result.items) || this.state.route;
             this.updateRoute();
-            this.setStatus(`繞圈路線完成，共 ${this.state.route.length} 個路點`, false);
+            const dist = result.total_dist ? Math.round(result.total_dist) : '?';
+            const radius = result.radius_used ? result.radius_used.toFixed(1) : '?';
+            this.setStatus(`繞圈路線完成：${this.state.route.length} 個路點，安全半徑 ${radius}m，距離 ${dist}m`, false);
         } catch (e) {
             this.setStatus('產生繞圈失敗: ' + e.message, true);
         }
@@ -429,14 +441,15 @@ const app = {
         const speed = parseFloat(document.getElementById('input-plan-speed').value) || 20;
         try {
             this.setStatus('正在產生採果路線...', false);
-            const result = await window.pywebview.api.fruit_route(this.state.route, speed);
+            const result = await window.pywebview.api.fruit_route(this.state.route);
             if (result && result.error) {
                 this.setStatus(result.error, true);
                 return;
             }
-            this.state.route = result || this.state.route;
+            this.state.route = (result && result.items) || this.state.route;
             this.updateRoute();
-            this.setStatus(`採果路線完成，共 ${this.state.route.length} 個路點`, false);
+            const dist = result.total_dist ? Math.round(result.total_dist) : '?';
+            this.setStatus(`採果路線完成：${this.state.route.length} 個路點，距離 ${dist}m`, false);
         } catch (e) {
             this.setStatus('產生採果路線失敗: ' + e.message, true);
         }

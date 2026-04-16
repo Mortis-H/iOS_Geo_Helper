@@ -249,7 +249,7 @@ const mapModule = {
 
     fitBounds(items) {
         if (!items || items.length === 0) return;
-        const bounds = L.latLngBounds(items.map((it) => [it.lat, it.lng]));
+        const bounds = L.latLngBounds(items.map((it) => [parseFloat(it.lat), parseFloat(it.lng)]));
         this.map.fitBounds(bounds, { padding: [40, 40] });
     },
 
