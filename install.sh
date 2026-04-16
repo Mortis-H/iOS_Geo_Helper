@@ -64,9 +64,20 @@ fi
 
 cat > "$APP_DIR/iOS虛擬定位" << 'SCRIPT'
 #!/bin/zsh
-export PATH="/opt/homebrew/bin:$HOME/.local/bin:$PATH"
+export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
 SCRIPT_DIR="$(cd "$(dirname "$(dirname "$(dirname "$(dirname "$0")")")")" && pwd)"
-PYTHON_PATH="$(brew --prefix python)/bin/python3"
+LOG_FILE="$SCRIPT_DIR/.app_launch.log"
+exec > "$LOG_FILE" 2>&1
+echo "=== Launch $(date) ==="
+echo "SCRIPT_DIR=$SCRIPT_DIR"
+echo "PATH=$PATH"
+
+PYTHON_PATH="$(brew --prefix python 2>/dev/null)/bin/python3"
+if [ ! -x "$PYTHON_PATH" ]; then
+    PYTHON_PATH="$(which python3)"
+fi
+echo "PYTHON_PATH=$PYTHON_PATH"
+
 cd "$SCRIPT_DIR"
 "$PYTHON_PATH" main.py
 SCRIPT
@@ -90,8 +101,12 @@ EOF
 echo ""
 echo "✅ 安裝完成！"
 echo ""
+echo "應用程式位於：$SCRIPT_DIR/iOS虛擬定位.app"
+echo ""
 echo "使用方式："
-echo "1. 雙擊「iOS虛擬定位.app」開啟程式"
-echo "2. 或在終端機執行：python3 main.py"
+echo "1. 雙擊上方路徑的「iOS虛擬定位.app」開啟程式"
+echo "2. 或在終端機執行：cd $SCRIPT_DIR && python3 main.py"
 echo "3. iPhone 連接電腦並信任此電腦"
 echo "4. iOS 17+ 需開啟：設定 > 隱私權與安全性 > 開發者模式"
+echo ""
+echo "⚠️  首次開啟若被 macOS 阻擋，請到「系統設定 > 隱私權與安全性」允許執行"
