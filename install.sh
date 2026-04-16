@@ -52,6 +52,19 @@ echo "📦 使用 Python: $PYTHON_PATH"
 # 安裝 Python 依賴（用同一個 Python 的 pip）
 "$PYTHON_PATH" -m pip install -r "$SCRIPT_DIR/requirements.txt"
 
+# 驗證 pywebview 可正常匯入
+"$PYTHON_PATH" -c "import webview" 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo "❌ pywebview 安裝失敗，請手動執行：$PYTHON_PATH -m pip install pywebview"
+    exit 1
+fi
+echo "✅ pywebview 已安裝"
+
+# 取得安裝時確定的絕對路徑（寫死到 .app 裡）
+RESOLVED_PYTHON="$(realpath "$PYTHON_PATH")"
+RESOLVED_SCRIPT_DIR="$(realpath "$SCRIPT_DIR")"
+echo "📦 寫入 .app 的 Python 路徑: $RESOLVED_PYTHON"
+
 # 產生 .app 應用程式
 APP_DIR="$SCRIPT_DIR/iOS虛擬定位.app/Contents/MacOS"
 RES_DIR="$SCRIPT_DIR/iOS虛擬定位.app/Contents/Resources"
@@ -65,22 +78,11 @@ else
     echo "⚠️ 未找到 AppIcon.icns，將使用預設圖示"
 fi
 
-cat > "$APP_DIR/iOS虛擬定位" << 'SCRIPT'
+# 用變數展開把安裝時的路徑寫死進 launcher（不用 'HEREDOC' 避免不展開）
+cat > "$APP_DIR/iOS虛擬定位" <<SCRIPT
 #!/bin/zsh
-source ~/.zshrc 2>/dev/null
-export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
-SCRIPT_DIR="$(cd "$(dirname "$(dirname "$(dirname "$(dirname "$0")")")")" && pwd)"
-LOG_FILE="$SCRIPT_DIR/.app_launch.log"
-exec > "$LOG_FILE" 2>&1
-echo "=== Launch $(date) ==="
-echo "SCRIPT_DIR=$SCRIPT_DIR"
-PYTHON_PATH="$(which python3)"
-echo "PYTHON_PATH=$PYTHON_PATH"
-echo "webview check:"
-"$PYTHON_PATH" -c "import webview; print('OK', webview.__version__)" 2>&1
-
-cd "$SCRIPT_DIR"
-"$PYTHON_PATH" main.py
+cd "$RESOLVED_SCRIPT_DIR"
+"$RESOLVED_PYTHON" main.py 2>&1 | tee "\$HOME/.ios_geo_helper.log"
 SCRIPT
 chmod +x "$APP_DIR/iOS虛擬定位"
 
