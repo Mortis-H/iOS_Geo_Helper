@@ -5,6 +5,7 @@ echo ""
 
 # 取得腳本所在目錄
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VENV_DIR="$SCRIPT_DIR/.venv"
 
 # 檢查 Homebrew
 if command -v brew &> /dev/null; then
@@ -42,28 +43,28 @@ else
     pipx install pymobiledevice3
 fi
 
-# 取得 Homebrew Python 路徑（統一使用同一個 Python）
-PYTHON_PATH=$(brew --prefix python)/bin/python3
-if [ ! -x "$PYTHON_PATH" ]; then
-    PYTHON_PATH=$(which python3)
-fi
+# 建立虛擬環境並安裝依賴
+echo ""
+echo "📦 建立虛擬環境..."
+python3 -m venv "$VENV_DIR"
+PYTHON_PATH="$VENV_DIR/bin/python3"
 echo "📦 使用 Python: $PYTHON_PATH"
 
-# 安裝 Python 依賴（用同一個 Python 的 pip）
+echo "📦 安裝 Python 依賴..."
+"$PYTHON_PATH" -m pip install --upgrade pip -q
 "$PYTHON_PATH" -m pip install -r "$SCRIPT_DIR/requirements.txt"
 
-# 驗證 pywebview 可正常匯入
+# 驗證 pywebview
 "$PYTHON_PATH" -c "import webview" 2>/dev/null
 if [ $? -ne 0 ]; then
-    echo "❌ pywebview 安裝失敗，請手動執行：$PYTHON_PATH -m pip install pywebview"
+    echo "❌ pywebview 安裝失敗"
     exit 1
 fi
 echo "✅ pywebview 已安裝"
 
-# 取得安裝時確定的絕對路徑（寫死到 .app 裡）
+# 取得絕對路徑寫死到 .app
 RESOLVED_PYTHON="$(realpath "$PYTHON_PATH")"
 RESOLVED_SCRIPT_DIR="$(realpath "$SCRIPT_DIR")"
-echo "📦 寫入 .app 的 Python 路徑: $RESOLVED_PYTHON"
 
 # 產生 .app 應用程式
 APP_DIR="$SCRIPT_DIR/iOS虛擬定位.app/Contents/MacOS"
@@ -78,11 +79,10 @@ else
     echo "⚠️ 未找到 AppIcon.icns，將使用預設圖示"
 fi
 
-# 用變數展開把安裝時的路徑寫死進 launcher（不用 'HEREDOC' 避免不展開）
 cat > "$APP_DIR/iOS虛擬定位" <<SCRIPT
 #!/bin/zsh
 cd "$RESOLVED_SCRIPT_DIR"
-"$RESOLVED_PYTHON" main.py 2>&1 | tee "\$HOME/.ios_geo_helper.log"
+"$RESOLVED_PYTHON" main.py
 SCRIPT
 chmod +x "$APP_DIR/iOS虛擬定位"
 
@@ -105,11 +105,10 @@ echo ""
 echo "✅ 安裝完成！"
 echo ""
 echo "應用程式位於：$SCRIPT_DIR/iOS虛擬定位.app"
+echo "虛擬環境位於：$VENV_DIR"
 echo ""
 echo "使用方式："
-echo "1. 雙擊上方路徑的「iOS虛擬定位.app」開啟程式"
-echo "2. 或在終端機執行：cd $SCRIPT_DIR && python3 main.py"
-echo "3. iPhone 連接電腦並信任此電腦"
-echo "4. iOS 17+ 需開啟：設定 > 隱私權與安全性 > 開發者模式"
+echo "  雙擊「iOS虛擬定位.app」"
+echo "  或在終端機執行：$PYTHON_PATH main.py"
 echo ""
 echo "⚠️  首次開啟若被 macOS 阻擋，請到「系統設定 > 隱私權與安全性」允許執行"

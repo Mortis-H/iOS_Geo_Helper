@@ -1,14 +1,20 @@
 import os
+import sys
 import webview
 
 from version import __version__
 from api import Api
 
 
+def _base_dir():
+    if getattr(sys, 'frozen', False):
+        return sys._MEIPASS
+    return os.path.dirname(os.path.abspath(__file__))
+
+
 def main():
     api = Api()
-    here = os.path.dirname(os.path.abspath(__file__))
-    url = os.path.join(here, "web", "index.html")
+    url = os.path.join(_base_dir(), "web", "index.html")
 
     window = webview.create_window(
         f"iOS Geo Helper v{__version__}",

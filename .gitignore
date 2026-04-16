@@ -1,5 +1,6 @@
 history/
 route/
+.venv/
 .build_venv/
 build/
 dist/
@@ -7,3 +8,5 @@ dist/
 .claude/
 __pycache__/
 *.png
+.app_launch.log
+*.app/
