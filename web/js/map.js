@@ -8,6 +8,13 @@ const mapModule = {
     patrolMarker: null,
     orbitPolyline: null,
 
+    drawVertices: [],
+    drawMarkers: [],
+    drawOverlay: null,
+    drawPreviewLine: null,
+    drawCircleCenter: null,
+    drawCircleCenterMarker: null,
+
     CATEGORY_COLORS: {
         '純點': '#4a90d9',
         '花點': '#e74c8b',
@@ -31,8 +38,34 @@ const mapModule = {
         this.map.on('click', (e) => {
             this.hideContextMenu();
             const { lat, lng } = e.latlng;
+
+            if (app.state.drawingMode === 'polygon') {
+                this._addPolygonVertex(lat, lng);
+                return;
+            }
+            if (app.state.drawingMode === 'circle') {
+                this._handleCircleClick(lat, lng);
+                return;
+            }
+            if (app.state.activeTab === 'route') {
+                app.addRoutePoint(lat, lng);
+                return;
+            }
             document.getElementById('input-lat').value = lat.toFixed(6);
             document.getElementById('input-lng').value = lng.toFixed(6);
+        });
+
+        this.map.on('dblclick', (e) => {
+            if (app.state.drawingMode === 'polygon' && this.drawVertices.length >= 3) {
+                e.originalEvent.preventDefault();
+                app.finishDraw();
+            }
+        });
+
+        this.map.on('mousemove', (e) => {
+            if (app.state.drawingMode === 'circle' && this.drawCircleCenter) {
+                this._previewCircleRadius(e.latlng);
+            }
         });
 
         this.map.on('contextmenu', (e) => {
@@ -41,6 +74,88 @@ const mapModule = {
         });
 
         document.addEventListener('click', () => this.hideContextMenu());
+    },
+
+    // ── Drawing: polygon ────────────────────────────────────
+
+    _addPolygonVertex(lat, lng) {
+        this.drawVertices.push([lat, lng]);
+        const m = L.circleMarker([lat, lng], { radius: 5, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 1 }).addTo(this.map);
+        this.drawMarkers.push(m);
+        this._updatePolygonPreview();
+        const el = document.getElementById('draw-status');
+        if (el) el.textContent = `已標記 ${this.drawVertices.length} 個頂點（雙擊完成）`;
+    },
+
+    _updatePolygonPreview() {
+        if (this.drawOverlay) this.drawOverlay.remove();
+        if (this.drawPreviewLine) this.drawPreviewLine.remove();
+        if (this.drawVertices.length >= 2) {
+            this.drawPreviewLine = L.polyline(this.drawVertices, { color: '#f59e0b', weight: 2, dashArray: '6 4' }).addTo(this.map);
+        }
+        if (this.drawVertices.length >= 3) {
+            this.drawOverlay = L.polygon(this.drawVertices, { color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.15, weight: 2 }).addTo(this.map);
+        }
+    },
+
+    getDrawnPolygon() {
+        return this.drawVertices.map((v) => ({ lat: v[0], lng: v[1] }));
+    },
+
+    // ── Drawing: circle ─────────────────────────────────────
+
+    _handleCircleClick(lat, lng) {
+        if (!this.drawCircleCenter) {
+            this.drawCircleCenter = [lat, lng];
+            this.drawCircleCenterMarker = L.circleMarker([lat, lng], { radius: 6, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 1 }).addTo(this.map);
+            const el = document.getElementById('draw-status');
+            if (el) el.textContent = '移動滑鼠調整半徑，再次點擊確認';
+        } else {
+            const radiusM = this.map.distance(this.drawCircleCenter, [lat, lng]);
+            this._setCirclePreview(radiusM);
+            app.state.drawCircleRadius = radiusM;
+            app.state.drawingMode = null;
+            this.map.getContainer().style.cursor = '';
+            const el = document.getElementById('draw-status');
+            if (el) el.textContent = `圓形區域：半徑 ${Math.round(radiusM)}m，點「生成掃描路徑」`;
+        }
+    },
+
+    _previewCircleRadius(latlng) {
+        if (!this.drawCircleCenter) return;
+        const radiusM = this.map.distance(this.drawCircleCenter, [latlng.lat, latlng.lng]);
+        this._setCirclePreview(radiusM);
+    },
+
+    _setCirclePreview(radiusM) {
+        if (this.drawOverlay) this.drawOverlay.remove();
+        this.drawOverlay = L.circle(this.drawCircleCenter, {
+            radius: radiusM, color: '#f59e0b', fillColor: '#f59e0b', fillOpacity: 0.15, weight: 2,
+        }).addTo(this.map);
+    },
+
+    getDrawnCircle() {
+        if (!this.drawCircleCenter) return null;
+        const r = app.state.drawCircleRadius || (this.drawOverlay ? this.drawOverlay.getRadius() : 0);
+        return { lat: this.drawCircleCenter[0], lng: this.drawCircleCenter[1], radius: r };
+    },
+
+    clearDraw() {
+        this.drawVertices = [];
+        this.drawMarkers.forEach((m) => m.remove());
+        this.drawMarkers = [];
+        if (this.drawOverlay) { this.drawOverlay.remove(); this.drawOverlay = null; }
+        if (this.drawPreviewLine) { this.drawPreviewLine.remove(); this.drawPreviewLine = null; }
+        if (this.drawCircleCenterMarker) { this.drawCircleCenterMarker.remove(); this.drawCircleCenterMarker = null; }
+        this.drawCircleCenter = null;
+        app.state.drawCircleRadius = null;
+        this.map.getContainer().style.cursor = '';
+        const el = document.getElementById('draw-status');
+        if (el) el.textContent = '';
+    },
+
+    setDrawingCursor(on) {
+        this.map.getContainer().style.cursor = on ? 'crosshair' : '';
     },
 
     createFavoriteIcon(category) {

@@ -268,6 +268,52 @@ class Api:
             "total_dist": result["total_dist"],
         }
 
+    # ── Area Sweep ─────────────────────────────────────────────
+
+    def sweep_polygon(self, vertices, spacing_m=40.0, angle_deg=0.0):
+        pts = []
+        for v in vertices:
+            try:
+                pts.append((float(v["lat"]), float(v["lng"])))
+            except (ValueError, KeyError, TypeError):
+                try:
+                    pts.append((float(v[0]), float(v[1])))
+                except Exception:
+                    continue
+        result = route_planner.sweep_polygon(pts, spacing_m=spacing_m, angle_deg=angle_deg)
+        wps = result["waypoints"]
+        items = []
+        for k, wp in enumerate(wps):
+            items.append({
+                "name": f"SW{k + 1:03d}",
+                "lat": f"{wp[0]:.8f}",
+                "lng": f"{wp[1]:.8f}",
+                "dwell": 0,
+            })
+        return {
+            "items": items,
+            "total_dist": result["total_dist"],
+            "warnings": result["warnings"],
+        }
+
+    def sweep_circle(self, center_lat, center_lng, radius_m, spacing_m=40.0):
+        center = (float(center_lat), float(center_lng))
+        result = route_planner.sweep_circle(center, radius_m=float(radius_m), spacing_m=spacing_m)
+        wps = result["waypoints"]
+        items = []
+        for k, wp in enumerate(wps):
+            items.append({
+                "name": f"SP{k + 1:03d}",
+                "lat": f"{wp[0]:.8f}",
+                "lng": f"{wp[1]:.8f}",
+                "dwell": 0,
+            })
+        return {
+            "items": items,
+            "total_dist": result["total_dist"],
+            "warnings": result["warnings"],
+        }
+
     # ── Patrol ────────────────────────────────────────────────
 
     def start_patrol(self, items, start_idx=0, speed_kmh=20.0, mode="loop"):

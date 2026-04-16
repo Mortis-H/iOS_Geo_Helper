@@ -16,7 +16,6 @@
             <button class="tab active" data-tab="location">定位</button>
             <button class="tab" data-tab="favorites">收藏</button>
             <button class="tab" data-tab="route">路線</button>
-            <button class="tab" data-tab="patrol">巡邏</button>
         </div>
         <div class="sidebar-body">
 
@@ -99,66 +98,88 @@
             </div>
 
             <div id="tab-route" class="tab-content">
-                <div class="section">
-                    <div class="btn-row">
-                        <button class="btn" onclick="app.loadRouteFile()">📂 載入</button>
-                        <button class="btn" onclick="app.saveRouteFile()">💾 儲存</button>
-                        <button class="btn" onclick="app.editRouteText()">📝 編輯</button>
-                        <button class="btn" onclick="app.clearRoute()">🗑 清除</button>
-                    </div>
-                </div>
-                <div class="section">
-                    <span id="route-count" class="text-muted">共 0 個路點</span>
-                </div>
-                <div id="route-list" class="item-list sortable"></div>
-                <div class="section" style="margin-top:8px">
-                    <label class="section-label">預設停留 (秒)</label>
-                    <input type="number" id="input-default-dwell" value="60" min="0" style="width:80px">
-                </div>
-                <div class="section">
-                    <label class="section-label">路線規劃</label>
-                    <div class="input-row">
-                        <label style="white-space:nowrap">速度</label>
-                        <input type="number" id="input-plan-speed" value="20" min="0" style="width:70px">
-                        <span class="text-muted">km/h</span>
-                    </div>
-                    <div class="btn-row" style="margin-top:6px">
-                        <button class="btn" onclick="app.planRoute()">🧭 規劃</button>
-                        <button class="btn" onclick="app.orbitRoute()">🔄 繞圈</button>
-                        <button class="btn" onclick="app.fruitRoute()">🍎 採果</button>
-                    </div>
-                </div>
-                <div class="section">
-                    <label><input type="checkbox" id="chk-show-circles"> 顯示花圈範圍</label>
-                </div>
-            </div>
+                <p class="hint-text">在地圖上左鍵點擊可直接加入路點</p>
 
-            <div id="tab-patrol" class="tab-content">
-                <div class="section">
-                    <label class="section-label">移動速度</label>
-                    <div class="input-row">
-                        <input type="number" id="input-patrol-speed" value="20" min="0" style="width:80px">
-                        <span class="text-muted">km/h, 0=瞬間跳轉</span>
+                <details class="collapse-section" open>
+                    <summary>編輯</summary>
+                    <div class="collapse-body">
+                        <div class="btn-row">
+                            <button class="btn" onclick="app.loadRouteFile()">📂 載入</button>
+                            <button class="btn" onclick="app.saveRouteFile()">💾 儲存</button>
+                            <button class="btn" onclick="app.editRouteText()">📝 文字</button>
+                            <button class="btn" onclick="app.clearRoute()">🗑 清除</button>
+                        </div>
+                        <div style="margin-top:6px"><span id="route-count" class="text-muted">共 0 個路點</span></div>
+                        <div id="route-list" class="item-list sortable"></div>
                     </div>
-                </div>
-                <div class="section">
-                    <label class="section-label">模式</label>
-                    <div class="radio-group">
-                        <label><input type="radio" name="patrol-mode" value="loop" checked> 循環</label>
-                        <label><input type="radio" name="patrol-mode" value="pingpong"> 來回</label>
-                        <label><input type="radio" name="patrol-mode" value="once"> 單次</label>
+                </details>
+
+                <details class="collapse-section">
+                    <summary>區域掃描</summary>
+                    <div class="collapse-body">
+                        <div class="btn-row">
+                            <button class="btn" id="btn-draw-polygon" onclick="app.startDrawPolygon()">▣ 多邊形</button>
+                            <button class="btn" id="btn-draw-circle" onclick="app.startDrawCircle()">◎ 圓形</button>
+                            <button class="btn" id="btn-clear-draw" onclick="app.clearDraw()">清除區域</button>
+                        </div>
+                        <div class="input-row" style="margin-top:6px">
+                            <label style="white-space:nowrap">間距</label>
+                            <input type="number" id="input-sweep-spacing" value="40" min="5" style="width:60px">
+                            <span class="text-muted">m</span>
+                            <label style="white-space:nowrap;margin-left:8px">角度</label>
+                            <input type="number" id="input-sweep-angle" value="0" style="width:55px">
+                            <span class="text-muted">°</span>
+                        </div>
+                        <div style="margin-top:6px">
+                            <button class="btn primary" id="btn-generate-sweep" onclick="app.generateSweepPath()">生成掃描路徑</button>
+                        </div>
+                        <div id="draw-status" class="text-muted" style="margin-top:4px;font-size:12px"></div>
                     </div>
-                </div>
-                <div class="section">
-                    <div class="btn-row">
-                        <button id="btn-patrol-start" class="btn primary" onclick="app.startPatrol()">▶ 開始</button>
-                        <button id="btn-patrol-pause" class="btn" onclick="app.togglePausePatrol()" disabled>⏸ 暫停</button>
-                        <button id="btn-patrol-stop" class="btn" onclick="app.stopPatrol()" disabled>⏹ 停止</button>
+                </details>
+
+                <details class="collapse-section">
+                    <summary>路線規劃</summary>
+                    <div class="collapse-body">
+                        <div class="input-row">
+                            <label style="white-space:nowrap">速度</label>
+                            <input type="number" id="input-plan-speed" value="20" min="0" style="width:70px">
+                            <span class="text-muted">km/h</span>
+                        </div>
+                        <div class="btn-row" style="margin-top:6px">
+                            <button class="btn" onclick="app.planRoute()">🧭 種花</button>
+                            <button class="btn" onclick="app.orbitRoute()">🔄 繞圈</button>
+                            <button class="btn" onclick="app.fruitRoute()">🍎 採果</button>
+                        </div>
+                        <label style="margin-top:6px;display:block"><input type="checkbox" id="chk-show-circles"> 顯示花圈範圍</label>
                     </div>
-                </div>
-                <div class="section">
-                    <div id="patrol-status" class="patrol-status"></div>
-                </div>
+                </details>
+
+                <details class="collapse-section" open>
+                    <summary>執行巡邏</summary>
+                    <div class="collapse-body">
+                        <div class="input-row">
+                            <label style="white-space:nowrap">速度</label>
+                            <input type="number" id="input-patrol-speed" value="20" min="0" style="width:70px">
+                            <span class="text-muted">km/h, 0=跳轉</span>
+                        </div>
+                        <div class="input-row" style="margin-top:4px">
+                            <label style="white-space:nowrap">停留</label>
+                            <input type="number" id="input-default-dwell" value="60" min="0" style="width:70px">
+                            <span class="text-muted">秒</span>
+                        </div>
+                        <div class="radio-group" style="margin-top:6px">
+                            <label><input type="radio" name="patrol-mode" value="loop" checked> 循環</label>
+                            <label><input type="radio" name="patrol-mode" value="pingpong"> 來回</label>
+                            <label><input type="radio" name="patrol-mode" value="once"> 單次</label>
+                        </div>
+                        <div class="btn-row" style="margin-top:6px">
+                            <button id="btn-patrol-start" class="btn primary" onclick="app.startPatrol()">▶ 開始</button>
+                            <button id="btn-patrol-pause" class="btn" onclick="app.togglePausePatrol()" disabled>⏸ 暫停</button>
+                            <button id="btn-patrol-stop" class="btn" onclick="app.stopPatrol()" disabled>⏹ 停止</button>
+                        </div>
+                        <div id="patrol-status" class="patrol-status"></div>
+                    </div>
+                </details>
             </div>
 
         </div>

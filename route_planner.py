@@ -483,6 +483,105 @@ def print_result(flowers: List[Point], result: dict):
 
 
 # ════════════════════════════════════════════════════════════
+# 區域掃描路徑
+# ════════════════════════════════════════════════════════════
+
+def _rotate(pts, angle_deg):
+    c = math.cos(math.radians(angle_deg))
+    s = math.sin(math.radians(angle_deg))
+    return [(x * c - y * s, x * s + y * c) for x, y in pts]
+
+
+def _scanline_intersections(poly, y):
+    xs = []
+    n = len(poly)
+    for i in range(n):
+        x1, y1 = poly[i]
+        x2, y2 = poly[(i + 1) % n]
+        if y1 == y2:
+            continue
+        if min(y1, y2) <= y < max(y1, y2):
+            t = (y - y1) / (y2 - y1)
+            xs.append(x1 + t * (x2 - x1))
+    return sorted(xs)
+
+
+def sweep_polygon(vertices: List[Point], spacing_m: float = 40.0,
+                  angle_deg: float = 0.0) -> dict:
+    """
+    多邊形區域牛耕式 (boustrophedon) 掃描路徑。
+    vertices: 多邊形頂點 (lat, lng)
+    spacing_m: 掃描線間距
+    angle_deg: 掃描方向旋轉角度 (0 = 東西方向掃描)
+    回傳 {waypoints, total_dist, warnings}
+    """
+    if len(vertices) < 3:
+        return {"waypoints": [], "total_dist": 0, "warnings": ["需至少 3 個頂點"]}
+
+    origin = vertices[0]
+    pts_m = [to_meters(v, origin) for v in vertices]
+    rotated = _rotate(pts_m, -angle_deg)
+
+    ys = [p[1] for p in rotated]
+    y_min, y_max = min(ys), max(ys)
+
+    path_m = []
+    y = y_min + spacing_m / 2
+    row = 0
+    while y < y_max:
+        xs = _scanline_intersections(rotated, y)
+        for i in range(0, len(xs) - 1, 2):
+            if row % 2 == 0:
+                path_m.append((xs[i], y))
+                path_m.append((xs[i + 1], y))
+            else:
+                path_m.append((xs[i + 1], y))
+                path_m.append((xs[i], y))
+        y += spacing_m
+        row += 1
+
+    if not path_m:
+        return {"waypoints": [], "total_dist": 0, "warnings": ["區域太小，無法產生掃描路徑"]}
+
+    unrotated = _rotate(path_m, angle_deg)
+    waypoints = [from_meters(p, origin) for p in unrotated]
+    total_dist = sum(haversine(waypoints[i], waypoints[i + 1]) for i in range(len(waypoints) - 1))
+    return {"waypoints": waypoints, "total_dist": total_dist, "warnings": []}
+
+
+def sweep_circle(center: Point, radius_m: float,
+                 spacing_m: float = 40.0) -> dict:
+    """
+    圓形區域阿基米德螺旋掃描路徑（由外向內）。
+    center: 圓心 (lat, lng)
+    radius_m: 半徑 (公尺)
+    spacing_m: 圈距
+    回傳 {waypoints, total_dist, warnings}
+    """
+    if radius_m <= 0:
+        return {"waypoints": [], "total_dist": 0, "warnings": ["半徑需大於 0"]}
+
+    total_turns = radius_m / spacing_m
+    total_angle = total_turns * 2 * math.pi
+    pts_per_turn = max(16, round(2 * math.pi * radius_m / spacing_m))
+    total_points = max(1, round(total_turns * pts_per_turn))
+
+    waypoints = []
+    for i in range(total_points + 1):
+        theta = total_angle * i / total_points
+        r = radius_m - spacing_m * theta / (2 * math.pi)
+        if r < 0:
+            break
+        x = r * math.cos(theta)
+        y = r * math.sin(theta)
+        waypoints.append(from_meters((x, y), center))
+    waypoints.append(center)
+
+    total_dist = sum(haversine(waypoints[i], waypoints[i + 1]) for i in range(len(waypoints) - 1))
+    return {"waypoints": waypoints, "total_dist": total_dist, "warnings": []}
+
+
+# ════════════════════════════════════════════════════════════
 # 主程式入口
 # ════════════════════════════════════════════════════════════
 

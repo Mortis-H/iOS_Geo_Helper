@@ -65,32 +65,37 @@ iOS_Geo_Helper/
 
 前端透過 `await window.pywebview.api.method(args)` 呼叫後端，每個方法回傳 JSON-serializable dict。
 
-| 類別 | 方法 |
-|------|------|
-| 定位 | `set_location(lat, lng)`, `clear_location()`, `parse_google_url(url)`, `parse_coords(text)` |
-| Tunnel | `start_tunnel()`, `stop_tunnel()` |
-| 收藏 | `get_favorites()`, `add_favorite(name, lat, lng, category)`, `delete_favorite(name)`, `update_favorites(data)`, `auto_categorize_favorites()` |
-| 路線 | `open_file_dialog()`, `save_file_dialog()`, `load_coord_list(filepath)`, `save_coord_list(filepath, items)`, `parse_coord_text(text, default_dwell)`, `plan_route(items, speed_kmh)`, `orbit_route(items)`, `fruit_route(items)` |
-| 巡邏 | `start_patrol(items, start_idx, speed_kmh, mode)`, `pause_patrol()`, `resume_patrol()`, `stop_patrol()` |
+
+| 類別     | 方法                                                                                                                                                                                                                               |
+| ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 定位     | `set_location(lat, lng)`, `clear_location()`, `parse_google_url(url)`, `parse_coords(text)`                                                                                                                                      |
+| Tunnel | `start_tunnel()`, `stop_tunnel()`                                                                                                                                                                                                |
+| 收藏     | `get_favorites()`, `add_favorite(name, lat, lng, category)`, `delete_favorite(name)`, `update_favorites(data)`, `auto_categorize_favorites()`                                                                                    |
+| 路線     | `open_file_dialog()`, `save_file_dialog()`, `load_coord_list(filepath)`, `save_coord_list(filepath, items)`, `parse_coord_text(text, default_dwell)`, `plan_route(items, speed_kmh)`, `orbit_route(items)`, `fruit_route(items)` |
+| 巡邏     | `start_patrol(items, start_idx, speed_kmh, mode)`, `pause_patrol()`, `resume_patrol()`, `stop_patrol()`                                                                                                                          |
+
 
 ### Python → JS（即時推送）
 
 後端透過 `window.evaluate_js('app.onEvent(event, data)')` 推送事件：
 
-| 事件 | 資料 | 來源 |
-|------|------|------|
-| `tunnel:status` | `{running}` | 輪詢執行緒（每 2 秒） |
-| `location:set` | `{lat, lng}` | set_location 成功後 |
-| `location:name` | `{name, warning}` | Nominatim 反查結果 |
-| `patrol:tick` | `{idx, name, remaining}` | 巡邏停留倒數 |
-| `patrol:travel` | `{idx_to, name_to, remaining_m, lat, lng}` | 巡邏移動插值 |
-| `patrol:finish` | `{}` | 巡邏結束 |
+
+| 事件              | 資料                                         | 來源               |
+| --------------- | ------------------------------------------ | ---------------- |
+| `tunnel:status` | `{running}`                                | 輪詢執行緒（每 2 秒）     |
+| `location:set`  | `{lat, lng}`                               | set_location 成功後 |
+| `location:name` | `{name, warning}`                          | Nominatim 反查結果   |
+| `patrol:tick`   | `{idx, name, remaining}`                   | 巡邏停留倒數           |
+| `patrol:travel` | `{idx_to, name_to, remaining_m, lat, lng}` | 巡邏移動插值           |
+| `patrol:finish` | `{}`                                       | 巡邏結束             |
+
 
 ## 模組說明
 
 ### `api.py` — 前後端橋接
 
 `Api` 類別，所有 public method 透過 pywebview 的 `js_api` 暴露給前端。負責：
+
 - 初始化 location 回呼、啟動 tunnel 輪詢執行緒
 - 封裝所有後端模組的呼叫，統一回傳 dict 格式
 - 透過 `_push()` 推送即時事件到前端
@@ -109,25 +114,30 @@ iOS_Geo_Helper/
 ### `patrol.py` — 巡邏控制器
 
 `PatrolController` 類別，透過 `location_fn` 注入定位函式（解耦）。
+
 - 三種模式：loop / pingpong / once
 - `on_travel` 回呼包含 `(idx_to, name_to, remaining_m, lat, lng)` 供地圖動畫
 
 ### `route_planner.py` — 路線演算法
 
-| 函式 | 模式 | 演算法 |
-|------|------|--------|
+
+| 函式                               | 模式       | 演算法                             |
+| -------------------------------- | -------- | ------------------------------- |
 | `plan_route(flowers, speed_kmh)` | 種花（封閉循環） | greedy nearest-neighbor → 2-opt |
-| `orbit_route(flowers)` | 外圈（凸包繞行） | 凸包 → 頂點圓弧 → 安全半徑 |
-| `fruit_route(flowers)` | 種果（開放單向） | greedy → 2-opt open |
+| `orbit_route(flowers)`           | 外圈（凸包繞行） | 凸包 → 頂點圓弧 → 安全半徑                |
+| `fruit_route(flowers)`           | 種果（開放單向） | greedy → 2-opt open             |
+
 
 ### `storage.py` — 持久化
 
-| 函式 | 說明 |
-|------|------|
-| `load_favorites()` / `save_favorites()` | favorites.json 讀寫 |
-| `save_to_history(lat, lng)` | 每日 history/YYYYMMDD.json |
-| `parse_coord_list_file(filepath)` | 解析 JSON 座標清單 |
-| `parse_coord_text(text, default_dwell)` | 解析多行座標文字 |
+
+| 函式                                      | 說明                       |
+| --------------------------------------- | ------------------------ |
+| `load_favorites()` / `save_favorites()` | favorites.json 讀寫        |
+| `save_to_history(lat, lng)`             | 每日 history/YYYYMMDD.json |
+| `parse_coord_list_file(filepath)`       | 解析 JSON 座標清單             |
+| `parse_coord_text(text, default_dwell)` | 解析多行座標文字                 |
+
 
 ### `favorites_manager.py` — 分類邏輯
 
@@ -147,12 +157,14 @@ iOS_Geo_Helper/
 
 ### 側邊欄（四個 Tab）
 
-| Tab | 功能 |
-|-----|------|
-| 定位 | Tunnel 狀態/控制、Google URL 解析、座標輸入、設定/清除位置 |
-| 收藏 | 分類篩選 toggle、收藏清單（含分類下拉）、新增/刪除/自動分類 |
-| 路線 | 載入/儲存 JSON、文字編輯 modal、拖曳排序清單、路線規劃（種花/外圈/種果） |
-| 巡邏 | 速度設定、模式選擇（循環/來回/單次）、開始/暫停/停止、狀態顯示 |
+
+| Tab | 功能                                          |
+| --- | ------------------------------------------- |
+| 定位  | Tunnel 狀態/控制、Google URL 解析、座標輸入、設定/清除位置     |
+| 收藏  | 分類篩選 toggle、收藏清單（含分類下拉）、新增/刪除/自動分類          |
+| 路線  | 載入/儲存 JSON、文字編輯 modal、拖曳排序清單、路線規劃（種花/外圈/種果） |
+| 巡邏  | 速度設定、模式選擇（循環/來回/單次）、開始/暫停/停止、狀態顯示           |
+
 
 ## 資料格式
 
@@ -183,12 +195,14 @@ iOS_Geo_Helper/
 
 ## 進入點
 
-| 方式 | 指令 |
-|------|------|
-| GUI 主程式 | `python3 main.py` |
-| CLI 捷徑 | `./loc.sh set <lat> <lng>` / `go <alias>` / `clear` / `tunnel` |
-| 路線規劃器 | `python3 route_planner.py` |
-| macOS App | 雙擊 `iOS虛擬定位.app`（install.sh 或 build.sh 產生） |
+
+| 方式        | 指令                                                             |
+| --------- | -------------------------------------------------------------- |
+| GUI 主程式   | `python3 main.py`                                              |
+| CLI 捷徑    | `./loc.sh set <lat> <lng>` / `go <alias>` / `clear` / `tunnel` |
+| 路線規劃器     | `python3 route_planner.py`                                     |
+| macOS App | 雙擊 `iOS虛擬定位.app`（install.sh 或 build.sh 產生）                     |
+
 
 ## 依賴
 
@@ -206,3 +220,4 @@ iOS_Geo_Helper/
 - **Tunnel 輪詢**：daemon thread 每 2 秒檢查
 - **巡邏**：`PatrolController._run_loop` 在 daemon thread，透過 `evaluate_js` 推送事件
 - **Nominatim 反查**：daemon thread，結果透過 `evaluate_js` 推送
+

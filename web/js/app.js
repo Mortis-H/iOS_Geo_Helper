@@ -7,6 +7,9 @@ const app = {
         currentLat: null,
         currentLng: null,
         contextLatLng: null,
+        activeTab: 'location',
+        drawingMode: null,
+        drawCircleRadius: null,
     },
 
     async init() {
@@ -534,6 +537,95 @@ const app = {
         const name = prompt('請輸入收藏名稱：');
         if (!name || !name.trim()) return;
         this.addToFavorites(name.trim(), ll.lat, ll.lng, '其他');
+    },
+
+    onTabChange(tab) {
+        this.state.activeTab = tab;
+        if (tab !== 'route' && this.state.drawingMode) {
+            this.state.drawingMode = null;
+            mapModule.setDrawingCursor(false);
+        }
+    },
+
+    startDrawPolygon() {
+        mapModule.clearDraw();
+        this.state.drawingMode = 'polygon';
+        mapModule.setDrawingCursor(true);
+        document.getElementById('draw-status').textContent = '在地圖上點擊標記多邊形頂點（雙擊完成）';
+    },
+
+    startDrawCircle() {
+        mapModule.clearDraw();
+        this.state.drawingMode = 'circle';
+        this.state.drawCircleRadius = null;
+        mapModule.setDrawingCursor(true);
+        document.getElementById('draw-status').textContent = '在地圖上點擊設定圓心';
+    },
+
+    finishDraw() {
+        if (this.state.drawingMode === 'polygon') {
+            this.state.drawingMode = null;
+            mapModule.setDrawingCursor(false);
+            const verts = mapModule.getDrawnPolygon();
+            if (verts.length < 3) {
+                this.setStatus('多邊形需至少 3 個頂點', true);
+                return;
+            }
+            document.getElementById('draw-status').textContent =
+                `多邊形 ${verts.length} 個頂點，點「生成掃描路徑」`;
+        }
+    },
+
+    clearDraw() {
+        this.state.drawingMode = null;
+        this.state.drawCircleRadius = null;
+        mapModule.clearDraw();
+    },
+
+    async generateSweepPath() {
+        const spacing = parseFloat(document.getElementById('input-sweep-spacing').value) || 40;
+        const angle = parseFloat(document.getElementById('input-sweep-angle').value) || 0;
+
+        const polygon = mapModule.getDrawnPolygon();
+        const circle = mapModule.getDrawnCircle();
+
+        if (polygon.length >= 3) {
+            try {
+                this.setStatus('正在生成多邊形掃描路徑...', false);
+                const result = await window.pywebview.api.sweep_polygon(polygon, spacing, angle);
+                if (result.warnings && result.warnings.length > 0) {
+                    this.setStatus(result.warnings.join('\n'), true);
+                    if (!result.items || result.items.length === 0) return;
+                }
+                this.state.route = result.items || [];
+                this.updateRoute();
+                if (this.state.route.length > 0) mapModule.fitBounds(this.state.route);
+                const dist = result.total_dist ? Math.round(result.total_dist) : 0;
+                this.setStatus(`掃描路徑完成：${this.state.route.length} 個路點，距離 ${dist}m`, false);
+            } catch (e) {
+                this.setStatus('生成掃描路徑失敗: ' + e.message, true);
+            }
+        } else if (circle && circle.radius > 0) {
+            try {
+                this.setStatus('正在生成圓形掃描路徑...', false);
+                const result = await window.pywebview.api.sweep_circle(
+                    circle.lat, circle.lng, circle.radius, spacing
+                );
+                if (result.warnings && result.warnings.length > 0) {
+                    this.setStatus(result.warnings.join('\n'), true);
+                    if (!result.items || result.items.length === 0) return;
+                }
+                this.state.route = result.items || [];
+                this.updateRoute();
+                if (this.state.route.length > 0) mapModule.fitBounds(this.state.route);
+                const dist = result.total_dist ? Math.round(result.total_dist) : 0;
+                this.setStatus(`螺旋路徑完成：${this.state.route.length} 個路點，距離 ${dist}m`, false);
+            } catch (e) {
+                this.setStatus('生成螺旋路徑失敗: ' + e.message, true);
+            }
+        } else {
+            this.setStatus('請先畫出區域（多邊形或圓形）', true);
+        }
     },
 
     setStatus(text, isError) {

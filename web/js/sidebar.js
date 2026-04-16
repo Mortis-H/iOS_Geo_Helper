@@ -17,6 +17,7 @@ const sidebar = {
                 document.querySelectorAll('.tab-content').forEach((tc) => tc.classList.remove('active'));
                 const target = document.getElementById('tab-' + tab.dataset.tab);
                 if (target) target.classList.add('active');
+                app.onTabChange(tab.dataset.tab);
             });
         });
 
