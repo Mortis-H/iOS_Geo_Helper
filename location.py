@@ -94,11 +94,12 @@ def set_location(lat: str, lng: str, save_history=True, fetch_name=True):
 
     if save_history:
         save_to_history(lat, lng)
-        if _on_set:
-            try:
-                _on_set(lat, lng)
-            except Exception:
-                pass
+
+    if _on_set:
+        try:
+            _on_set(lat, lng)
+        except Exception:
+            pass
 
     if fetch_name:
         threading.Thread(target=lambda: _do_reverse_geocode(lat, lng), daemon=True).start()
