@@ -42,12 +42,15 @@ else
     pipx install pymobiledevice3
 fi
 
-# 安裝 Python 依賴（pywebview）
-echo "📦 安裝 Python 依賴..."
-pip3 install -r "$SCRIPT_DIR/requirements.txt"
-
-# 取得 Homebrew Python 路徑
+# 取得 Homebrew Python 路徑（統一使用同一個 Python）
 PYTHON_PATH=$(brew --prefix python)/bin/python3
+if [ ! -x "$PYTHON_PATH" ]; then
+    PYTHON_PATH=$(which python3)
+fi
+echo "📦 使用 Python: $PYTHON_PATH"
+
+# 安裝 Python 依賴（用同一個 Python 的 pip）
+"$PYTHON_PATH" -m pip install -r "$SCRIPT_DIR/requirements.txt"
 
 # 產生 .app 應用程式
 APP_DIR="$SCRIPT_DIR/iOS虛擬定位.app/Contents/MacOS"
