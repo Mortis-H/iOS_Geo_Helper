@@ -78,7 +78,10 @@
 
             <div id="tab-favorites" class="tab-content">
                 <div class="section">
-                    <label class="section-label">分類篩選</label>
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                        <label class="section-label" style="margin:0">分類篩選</label>
+                        <button class="btn btn-xs" id="btn-toggle-all-cats" onclick="sidebar.toggleAllCategories()" title="全選/全不選">全選</button>
+                    </div>
                     <div class="category-toggles">
                         <label><input type="checkbox" class="cat-filter" data-cat="純點" checked><span class="cat-dot" style="background:var(--cat-pure)"></span>純點</label>
                         <label><input type="checkbox" class="cat-filter" data-cat="花點" checked><span class="cat-dot" style="background:var(--cat-flower)"></span>花點</label>

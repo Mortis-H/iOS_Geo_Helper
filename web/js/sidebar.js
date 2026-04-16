@@ -36,6 +36,9 @@ const sidebar = {
             cb.addEventListener('change', () => {
                 mapModule.updateFavoriteVisibility();
                 this.updateFavoritesList(app.state.favorites);
+                const boxes = document.querySelectorAll('.cat-filter');
+                const allChecked = [...boxes].every((c) => c.checked);
+                document.getElementById('btn-toggle-all-cats').textContent = allChecked ? '全不選' : '全選';
             });
         });
 
@@ -61,6 +64,15 @@ const sidebar = {
             dot.className = 'dot red';
             text.textContent = 'Tunnel 未啟動';
         }
+    },
+
+    toggleAllCategories() {
+        const boxes = document.querySelectorAll('.cat-filter');
+        const allChecked = [...boxes].every((cb) => cb.checked);
+        boxes.forEach((cb) => { cb.checked = !allChecked; });
+        document.getElementById('btn-toggle-all-cats').textContent = allChecked ? '全選' : '全不選';
+        mapModule.updateFavoriteVisibility();
+        this.updateFavoritesList(app.state.favorites);
     },
 
     getVisibleCategories() {
