@@ -55,6 +55,10 @@ const app = {
                 const label = `[${data.idx + 1}/${total}] ${data.name}  ${data.remaining}s`;
                 sidebar.updatePatrolStatus(label);
                 sidebar.highlightRouteItem(data.idx);
+                const tickItem = this.state.route[data.idx];
+                if (tickItem) {
+                    mapModule.setPatrolMarker(parseFloat(tickItem.lat), parseFloat(tickItem.lng));
+                }
                 break;
             }
             case 'patrol:travel': {
