@@ -33,7 +33,10 @@ const sidebar = {
         });
 
         document.querySelectorAll('.cat-filter').forEach((cb) => {
-            cb.addEventListener('change', () => mapModule.updateFavoriteVisibility());
+            cb.addEventListener('change', () => {
+                mapModule.updateFavoriteVisibility();
+                this.updateFavoritesList(app.state.favorites);
+            });
         });
 
         const showCircles = document.getElementById('chk-show-circles');
@@ -60,9 +63,19 @@ const sidebar = {
         }
     },
 
+    getVisibleCategories() {
+        const visible = new Set();
+        document.querySelectorAll('.cat-filter').forEach((cb) => {
+            if (cb.checked) visible.add(cb.dataset.cat);
+        });
+        return visible;
+    },
+
     updateFavoritesList(favorites) {
         const container = document.getElementById('favorites-list');
         container.innerHTML = '';
+
+        const visibleCats = this.getVisibleCategories();
 
         const grouped = {};
         this.CATEGORY_ORDER.forEach((cat) => { grouped[cat] = []; });
@@ -76,6 +89,7 @@ const sidebar = {
         for (const cat of this.CATEGORY_ORDER) {
             const items = grouped[cat];
             if (!items || items.length === 0) continue;
+            if (!visibleCats.has(cat)) continue;
 
             const header = document.createElement('div');
             header.className = 'category-header';
