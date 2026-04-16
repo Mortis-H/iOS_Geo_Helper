@@ -340,6 +340,19 @@ const mapModule = {
             this.patrolMarker.remove();
             this.patrolMarker = null;
         }
+        this.highlightWaypoint(-1);
+    },
+
+    highlightWaypoint(idx) {
+        this.routeMarkers.forEach((m, i) => {
+            const el = m.getElement();
+            if (!el) return;
+            if (i === idx) {
+                el.classList.add('waypoint-active');
+            } else {
+                el.classList.remove('waypoint-active');
+            }
+        });
     },
 
     showContextMenu(e) {

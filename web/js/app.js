@@ -52,9 +52,10 @@ const app = {
             }
             case 'patrol:tick': {
                 const total = this.state.route.length;
-                const label = `[${data.idx + 1}/${total}] ${data.name}  ${data.remaining}s`;
+                const label = `#${data.idx + 1}/${total}  ${data.name}  停留 ${data.remaining}s`;
                 sidebar.updatePatrolStatus(label);
                 sidebar.highlightRouteItem(data.idx);
+                mapModule.highlightWaypoint(data.idx);
                 const tickItem = this.state.route[data.idx];
                 if (tickItem) {
                     mapModule.setPatrolMarker(parseFloat(tickItem.lat), parseFloat(tickItem.lng));
@@ -65,9 +66,10 @@ const app = {
                 const dist = data.remaining_m >= 1000
                     ? `${(data.remaining_m / 1000).toFixed(1)}km`
                     : `${Math.round(data.remaining_m)}m`;
-                sidebar.updatePatrolStatus(`🚶 → ${data.name_to}  ${dist}`);
+                sidebar.updatePatrolStatus(`🚶 #${data.idx_to + 1} → ${data.name_to}  ${dist}`);
                 mapModule.setPatrolMarker(data.lat, data.lng);
                 sidebar.highlightRouteItem(data.idx_to);
+                mapModule.highlightWaypoint(data.idx_to);
                 break;
             }
             case 'patrol:finish':
