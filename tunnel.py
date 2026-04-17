@@ -17,7 +17,7 @@ def start_tunnel() -> str:
         return "⚠️ tunneld 已在執行中，無需重複啟動"
     script = (
         f'do shell script '
-        f'"nohup {PYMOBILEDEVICE3} remote tunneld '
+        f'"{PYMOBILEDEVICE3} remote tunneld '
         f'> /tmp/tunneld.log 2>&1 &" '
         f'with administrator privileges'
     )
