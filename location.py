@@ -80,14 +80,21 @@ def set_location(lat: str, lng: str, save_history=True, fetch_name=True):
         try:
             proc = subprocess.Popen(
                 [PYMOBILEDEVICE3, "developer", "dvt", "simulate-location", "set", "--", lat, lng],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
             )
             try:
-                proc.wait(timeout=10)
+                _, stderr = proc.communicate(timeout=10)
+                if proc.returncode != 0 and stderr and _on_name:
+                    err_msg = stderr.decode(errors="replace").strip()[:120]
+                    _on_name(name=None, warning=f"定位指令失敗: {err_msg}")
             except subprocess.TimeoutExpired:
                 proc.kill()
-        except Exception:
-            pass
+        except FileNotFoundError:
+            if _on_name:
+                _on_name(name=None, warning=f"找不到 pymobiledevice3: {PYMOBILEDEVICE3}")
+        except Exception as e:
+            if _on_name:
+                _on_name(name=None, warning=f"定位指令錯誤: {str(e)[:80]}")
 
     threading.Thread(target=run_set, daemon=True).start()
     _start_keepalive(lat, lng)

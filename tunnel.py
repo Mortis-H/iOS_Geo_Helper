@@ -18,7 +18,7 @@ def start_tunnel() -> str:
     script = (
         f'do shell script '
         f'"nohup {PYMOBILEDEVICE3} remote tunneld '
-        f'> /dev/null 2>&1 &" '
+        f'> /tmp/tunneld.log 2>&1 &" '
         f'with administrator privileges'
     )
     result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
