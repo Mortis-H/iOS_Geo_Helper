@@ -332,7 +332,7 @@ const app = {
 
     async applyTextEdit() {
         const text = document.getElementById('modal-textarea').value;
-        const defaultDwell = parseInt(document.getElementById('modal-default-dwell').value) || 60;
+        const defaultDwell = parseInt(document.getElementById('modal-default-dwell').value) || 3;
         try {
             const result = await window.pywebview.api.parse_coord_text(text, defaultDwell);
             if (result && result.error) {
@@ -351,6 +351,20 @@ const app = {
         }
     },
 
+    async pasteToTextarea() {
+        try {
+            const text = await navigator.clipboard.readText();
+            const ta = document.getElementById('modal-textarea');
+            const start = ta.selectionStart;
+            const end = ta.selectionEnd;
+            ta.value = ta.value.substring(0, start) + text + ta.value.substring(end);
+            ta.selectionStart = ta.selectionEnd = start + text.length;
+            ta.focus();
+        } catch {
+            this.setStatus('無法讀取剪貼簿（請用 Cmd+V）', true);
+        }
+    },
+
     closeModal() {
         document.getElementById('modal-overlay').style.display = 'none';
     },
@@ -363,7 +377,7 @@ const app = {
     },
 
     addRoutePoint(lat, lng, name) {
-        const dwell = parseInt(document.getElementById('input-default-dwell').value) || 60;
+        const dwell = parseInt(document.getElementById('input-default-dwell').value) || 3;
         this.state.route.push({
             name: name || '',
             lat: lat,

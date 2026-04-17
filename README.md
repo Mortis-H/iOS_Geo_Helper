@@ -120,13 +120,14 @@ iOS_Geo_Helper/
 
 ### `route_planner.py` — 路線演算法
 
-| 函式 | 模式 | 演算法 |
-|------|------|--------|
-| `plan_route(flowers, speed_kmh)` | 種花（封閉循環） | greedy nearest-neighbor → 2-opt |
-| `orbit_route(flowers)` | 外圈（凸包繞行） | 凸包 → 頂點圓弧 → 安全半徑 |
-| `fruit_route(flowers)` | 種果（開放單向） | greedy → 2-opt open |
-| `sweep_polygon(vertices, spacing_m, angle_deg)` | 多邊形區域掃描 | 牛耕式 boustrophedon zigzag，支援旋轉角度 |
-| `sweep_circle(center, radius_m, spacing_m)` | 圓形區域掃描 | 阿基米德螺旋由外向內 |
+
+| 函式                                              | 模式       | 演算法                             |
+| ----------------------------------------------- | -------- | ------------------------------- |
+| `plan_route(flowers, speed_kmh)`                | 種花（封閉循環） | greedy nearest-neighbor → 2-opt |
+| `orbit_route(flowers)`                          | 外圈（凸包繞行） | 凸包 → 頂點圓弧 → 安全半徑                |
+| `fruit_route(flowers)`                          | 種果（開放單向） | greedy → 2-opt open             |
+| `sweep_polygon(vertices, spacing_m, angle_deg)` | 多邊形區域掃描  | 牛耕式 boustrophedon zigzag，支援旋轉角度 |
+| `sweep_circle(center, radius_m, spacing_m)`     | 圓形區域掃描   | 阿基米德螺旋由外向內                      |
 
 
 ### `storage.py` — 持久化
@@ -161,11 +162,12 @@ iOS_Geo_Helper/
 
 ### 側邊欄（三個 Tab）
 
-| Tab | 功能 |
-|-----|------|
-| 定位 | Tunnel 狀態/控制、Google URL 解析、座標輸入、設定/清除位置 |
-| 收藏 | 分類篩選 toggle（含全選/全不選）、收藏清單（含分類下拉）、新增/刪除/自動分類 |
-| 路線 | 四個折疊區塊：編輯（載入/儲存/文字/清除 + 路點清單）、區域掃描（多邊形 zigzag / 圓形螺旋）、路線規劃（種花/繞圈/採果）、執行巡邏（速度/模式/開始暫停停止） |
+
+| Tab | 功能                                                                                      |
+| --- | --------------------------------------------------------------------------------------- |
+| 定位  | Tunnel 狀態/控制、Google URL 解析、座標輸入、設定/清除位置                                                 |
+| 收藏  | 分類篩選 toggle（含全選/全不選）、收藏清單（含分類下拉）、新增/刪除/自動分類                                             |
+| 路線  | 四個折疊區塊：編輯（載入/儲存/文字/清除 + 路點清單）、區域掃描（多邊形 zigzag / 圓形螺旋）、路線規劃（種花/繞圈/採果）、執行巡邏（速度/模式/開始暫停停止） |
 
 
 ## 資料格式

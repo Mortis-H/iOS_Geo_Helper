@@ -175,7 +175,7 @@ class Api:
         except Exception as e:
             return {"error": str(e)}
 
-    def parse_coord_text(self, text, default_dwell=60):
+    def parse_coord_text(self, text, default_dwell=3):
         items = storage.parse_coord_text(text, default_dwell=default_dwell)
         return {"items": items}
 

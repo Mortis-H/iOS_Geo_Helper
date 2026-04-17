@@ -164,7 +164,7 @@
                         </div>
                         <div class="input-row" style="margin-top:4px">
                             <label style="white-space:nowrap">停留</label>
-                            <input type="number" id="input-default-dwell" value="60" min="0" style="width:70px">
+                            <input type="number" id="input-default-dwell" value="3" min="0" style="width:70px">
                             <span class="text-muted">秒</span>
                         </div>
                         <div class="radio-group" style="margin-top:6px">
@@ -196,12 +196,16 @@
             <h3>編輯座標文字</h3>
             <p class="text-muted">支援格式：lat,lng / lat lng / name lat lng / # 開頭為註解</p>
             <textarea id="modal-textarea" rows="12" placeholder="每行一個座標..."></textarea>
+            <div class="btn-row" style="margin-top:6px">
+                <button class="btn btn-xs" onclick="app.pasteToTextarea()">📋 貼上</button>
+                <button class="btn btn-xs" onclick="document.getElementById('modal-textarea').value=''">清空</button>
+            </div>
             <div class="input-row" style="margin-top:8px">
                 <label style="white-space:nowrap">預設停留 (秒)</label>
-                <input type="number" id="modal-default-dwell" value="60" min="0" style="width:80px">
+                <input type="number" id="modal-default-dwell" value="3" min="0" style="width:80px">
             </div>
             <div class="btn-row" style="margin-top:12px">
-                <button class="btn primary" onclick="app.applyTextEdit()">✅ Parse & Apply</button>
+                <button class="btn primary" onclick="app.applyTextEdit()">✅ 解析並套用</button>
                 <button class="btn" onclick="app.closeModal()">取消</button>
             </div>
         </div>

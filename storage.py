@@ -49,7 +49,7 @@ def parse_coord_list_file(filepath):
                     "name": name,
                     "lat": str(item["lat"]),
                     "lng": str(item["lng"]),
-                    "dwell": int(item.get("dwell", 60)),
+                    "dwell": int(item.get("dwell", 3)),
                 })
     elif isinstance(data, dict):
         for name, coords in data.items():
@@ -58,12 +58,12 @@ def parse_coord_list_file(filepath):
                     "name": name,
                     "lat": str(coords["lat"]),
                     "lng": str(coords["lng"]),
-                    "dwell": int(coords.get("dwell", 60)),
+                    "dwell": int(coords.get("dwell", 3)),
                 })
     return items
 
 
-def parse_coord_text(text, default_dwell=60):
+def parse_coord_text(text, default_dwell=3):
     items = []
     for line in text.splitlines():
         line = line.strip()
