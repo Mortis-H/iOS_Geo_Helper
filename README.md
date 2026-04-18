@@ -103,13 +103,16 @@ iOS_Geo_Helper/
 ### `location.py` — 定位核心
 
 - `init(on_set, on_name)`：註冊回呼函式（取代 Tkinter widget 注入）
-- `set_location(lat, lng, save_history, fetch_name)`：驗證 → subprocess → keepalive → 回呼
+- `set_location(lat, lng, save_history, fetch_name)`：驗證 → subprocess → keepalive → 回呼。subprocess 失敗時會推送錯誤訊息到前端
 - keep-alive 使用 `threading.Timer` 每 10 秒重送定位
 - `reverse_geocode(lat, lng)`：Nominatim 同步查詢（呼叫方需在執行緒內呼叫）
+- 預設停留秒數：3 秒
 
 ### `tunnel.py` — Tunnel 管理
 
 三個純函式：`is_running()`, `start_tunnel()`, `stop_tunnel()`。無狀態、無 UI 依賴。
+- 啟動使用 `do shell script ... with administrator privileges`（macOS 原生授權對話框，不跳 Terminal）
+- tunneld 在背景執行，log 寫入 `/tmp/tunneld.log`
 
 ### `patrol.py` — 巡邏控制器
 
@@ -200,12 +203,12 @@ iOS_Geo_Helper/
 ## 進入點
 
 
-| 方式        | 指令                                                             |
-| --------- | -------------------------------------------------------------- |
-| GUI 主程式   | `python3 main.py`                                              |
-| CLI 捷徑    | `./loc.sh set <lat> <lng>` / `go <alias>` / `clear` / `tunnel` |
-| 路線規劃器     | `python3 route_planner.py`                                     |
-| macOS App | 雙擊 `iOS虛擬定位.app`（install.sh 或 build.sh 產生）                     |
+| 方式 | 指令 | 說明 |
+|------|------|------|
+| 開發用 | `./install.sh` → `python3 main.py` 或雙擊 `.app` | 建立 `.venv/` 虛擬環境，pywebview 裝在 venv 內 |
+| 發佈用 | `./build.sh` → `dist/iOS虛擬定位.app` | PyInstaller 獨立打包，傳給別人直接雙擊使用 |
+| CLI 捷徑 | `./loc.sh set <lat> <lng>` / `go` / `clear` / `tunnel` | 不依賴 GUI |
+| 路線規劃器 | `python3 route_planner.py` | 互動式命令列 |
 
 
 ## 依賴
