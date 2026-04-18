@@ -10,3 +10,4 @@ __pycache__/
 *.png
 .app_launch.log
 *.app/
+*.DS_Store
